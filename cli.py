@@ -1,9 +1,8 @@
-from llm import embeddings
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_community.vectorstores.chroma import Chroma
 from chain import create_handbook_retrieval_chain
+from embedding import load_embeddings
 
-vector = Chroma(persist_directory="./embeddings_db", embedding_function=embeddings)
+vector = load_embeddings()
 retrieval_chain = create_handbook_retrieval_chain(vector)
 chat_history = []
 
