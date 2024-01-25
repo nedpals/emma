@@ -1,4 +1,4 @@
-from utils import embeddings
+from llm import embeddings
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter

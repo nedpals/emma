@@ -1,10 +1,8 @@
-from utils import llm, embeddings
+from llm import llm, embeddings
 from langchain_community.vectorstores.chroma import Chroma
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-# from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 
 vector = Chroma(persist_directory="./embeddings_db", embedding_function=embeddings)
