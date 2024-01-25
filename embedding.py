@@ -24,7 +24,7 @@ def initiate_embed():
         print(f"Embedding split {i+1} of {len(all_splits)}")
         Chroma.from_documents(documents=[split], embedding=embeddings, persist_directory="./embeddings_db")
         if i % 2 == 0:
-            time.sleep(2) # sleep for 2 seconds every other split to avoid hitting the mistral rate limit
+            time.sleep(1) # sleep for 1 second every other split to avoid hitting the mistral rate limit
 
 if __name__ == "__main__":
     initiate_embed()
