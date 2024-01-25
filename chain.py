@@ -12,17 +12,27 @@ initial_prompt = ChatPromptTemplate.from_messages([
 ])
 
 # this prompt will be used for the chatbot to ask the user a question
-prompt = ChatPromptTemplate.from_messages([
+history_aware_prompt = ChatPromptTemplate.from_messages([
     ("system", "Answer the user's question based only on the below context and make it straight to the point:\n\n{context}"),
     MessagesPlaceholder(variable_name="chat_history"),
     ("user", "{input}")
 ])
 
-def create_handbook_retrieval_chain(vector: Chroma):
-    retriever = vector.as_retriever()
-    retriever_chain = create_history_aware_retriever(llm, retriever, initial_prompt)
-    document_chain = create_stuff_documents_chain(llm, prompt)
+non_history_aware_prompt = ChatPromptTemplate.from_template("""Answer the user's question based only on the below context and make it straight to the point:
 
-    # use retriever_chain to be able to use the chat history
-    retrieval_chain = create_retrieval_chain(retriever_chain, document_chain)
+{context}
+Question: {input}""")
+
+def create_handbook_retrieval_chain(vector: Chroma, history_aware = True):
+    retriever = vector.as_retriever()
+    if history_aware:
+        retriever_chain = create_history_aware_retriever(llm, retriever, initial_prompt)
+        document_chain = create_stuff_documents_chain(llm, history_aware_prompt)
+
+        # use retriever_chain to be able to use the chat history
+        retrieval_chain = create_retrieval_chain(retriever_chain, document_chain)
+    else:
+        document_chain = create_stuff_documents_chain(llm, non_history_aware_prompt)
+        retrieval_chain = create_retrieval_chain(retriever, document_chain)
+
     return retrieval_chain
