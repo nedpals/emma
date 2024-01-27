@@ -11,17 +11,18 @@ initial_prompt = ChatPromptTemplate.from_messages([
     ("user", "generate a search to look up in order to get information relevant to the conversation")
 ])
 
+# this will be the base prompt for the chatbot to ask the user a question both for history aware and non-history aware
+base_system_prompt = "Answer the user's question based only on the below context and make it straight to the point:\n\n{context}"
+
 # this prompt will be used for the chatbot to ask the user a question
 history_aware_prompt = ChatPromptTemplate.from_messages([
-    ("system", "Answer the user's question based only on the below context and make it straight to the point:\n\n{context}"),
+    ("system", base_system_prompt),
     MessagesPlaceholder(variable_name="chat_history"),
     ("user", "{input}")
 ])
 
-non_history_aware_prompt = ChatPromptTemplate.from_template("""Answer the user's question based only on the below context and make it straight to the point:
-
-{context}
-Question: {input}""")
+# this prompt will be used if it does not have access to the chat history
+non_history_aware_prompt = ChatPromptTemplate.from_template(base_system_prompt + "Question: {input}")
 
 def create_handbook_retrieval_chain(vector: Chroma, history_aware = True):
     retriever = vector.as_retriever()
