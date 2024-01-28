@@ -5,24 +5,23 @@ from pydantic import BaseModel
 from chain import create_handbook_retrieval_chain
 from embedding import load_embeddings
 
+import meta
 import uvicorn
 
-app = FastAPI(
-    title="UIC Handbook Assistant API",
-    version="0.0.1",
-    description="API for the UIC Handbook Assistant",
-)
+vector = load_embeddings()
+chain = create_handbook_retrieval_chain(vector, history_aware=False)
 
-# app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend/dist")
+app = FastAPI(
+    title=f"{meta.title} API",
+    version=meta.version,
+    description=f"API for the {meta.title} chatbot",
+)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
 )
-
-vector = load_embeddings()
-chain = create_handbook_retrieval_chain(vector, history_aware=False)
 
 class InvokeChainRequest(BaseModel):
     config: dict

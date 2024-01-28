@@ -3,6 +3,7 @@ from langchain_community.vectorstores.chroma import Chroma
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+import meta
 
 # this prompt will be used to generate a search query to look up in the document
 initial_prompt = ChatPromptTemplate.from_messages([
@@ -11,18 +12,23 @@ initial_prompt = ChatPromptTemplate.from_messages([
     ("user", "generate a search to look up in order to get information relevant to the conversation")
 ])
 
+# this prompt will be used to welcome the user
+welcome_prompt = f"Your name is {meta.title} and you are a chatbot. Your description is \"{meta.description}\"."
+
 # this will be the base prompt for the chatbot to ask the user a question both for history aware and non-history aware
 base_system_prompt = "Answer the user's question based only on the below context and make it straight to the point:\n\n{context}"
 
 # this prompt will be used for the chatbot to ask the user a question
 history_aware_prompt = ChatPromptTemplate.from_messages([
-    ("system", base_system_prompt),
+    ("system", welcome_prompt + base_system_prompt),
     MessagesPlaceholder(variable_name="chat_history"),
     ("user", "{input}")
 ])
 
 # this prompt will be used if it does not have access to the chat history
-non_history_aware_prompt = ChatPromptTemplate.from_template(base_system_prompt + "Question: {input}")
+non_history_aware_prompt = ChatPromptTemplate.from_template(
+    welcome_prompt + base_system_prompt + "Question: {input}"
+)
 
 def create_handbook_retrieval_chain(vector: Chroma, history_aware = True):
     retriever = vector.as_retriever()
