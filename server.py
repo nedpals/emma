@@ -24,7 +24,7 @@ if environment != "development":
         manifest = json.load(f)
 
 vector = load_embeddings()
-chain = create_handbook_retrieval_chain(vector, history_aware=True)
+chain = create_handbook_retrieval_chain(vector, history_aware=False)
 
 app = FastAPI(
     title=f"{meta.title} API",
