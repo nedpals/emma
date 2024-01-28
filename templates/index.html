@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/public/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="{{ description }}" />
+    <title>{{ title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;700&family=Montserrat:wght@400;900&display=swap" rel="stylesheet">
+    {% if env != "development" %}
+      {% for css in manifest['main.js'].css %}
+        <link rel="stylesheet" href="{{ url_for('public', path=css) }}" />
+      {% endfor %}
+    {% endif %}
+  </head>
+  <body>
+    <div id="root"></div>
+
+    {% if env == "development" %}
+      <script type="module">
+        import RefreshRuntime from 'http://localhost:5173/@react-refresh'
+        RefreshRuntime.injectIntoGlobalHook(window)
+        window.$RefreshReg$ = () => {}
+        window.$RefreshSig$ = () => (type) => type
+        window.__vite_plugin_react_preamble_installed__ = true
+      </script>
+
+      <script type="module" src="http://localhost:5173/@vite/client"></script>
+      <script type="module" src="http://localhost:5173/main.js"></script>
+    {% else %}
+      <script type="module" src="{{ url_for('public', path=manifest['main.js'].file) }}"></script>
+    {% endif %}
+  </body>
+</html>
