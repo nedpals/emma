@@ -49,6 +49,7 @@ function App() {
   ])
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const storeBotMessage = (message: string, status?: Message['status']) => {
     setMessages(msg => {
@@ -85,6 +86,8 @@ function App() {
       }
     ]);
 
+    scrollToBottom();
+
     // sleep for 1 second
     await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -93,9 +96,29 @@ function App() {
       storeBotMessage(result.answer);
       return result.answer;
     } catch (err) {
+      console.error(err);
       storeBotMessage('Sorry, I encountered an error. Please try again.', 'error');
       return null;
+    } finally {
+      scrollToBottom();
     }
+  }
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (!contentRef.current) {
+        return;
+      }
+
+      if (contentRef.current.scrollTo) {
+        contentRef.current.scrollTo({
+          top: contentRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      } else {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      }
+    }, 50);
   }
 
   const retrieveAndSubmit = () => {
@@ -116,52 +139,53 @@ function App() {
 
   return (
     <main className="flex flex-col flex-nowrap h-screen">
-      <header className="px-8 py-4 bg-pink-50 shadow flex items-center justify-center">
+      <header className="flex-none px-8 py-4 bg-pink-50 shadow flex items-center justify-center">
         <p className="font-bold">Emma</p>
       </header>
 
-      <section className="max-w-5xl mx-auto px-8 py-4 space-y-4 w-full flex-1 flex flex-col justify-end overflow-y-auto">
-        {messages.map((message, index) => (
-          <div key={index} className={cn('w-full lg:w-3/4 flex flex-col', message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
-            <div className={cn("flex justify-start",
-              message.status === 'loading' ? 'items-stretch' : 'items-start',
-              message.type === 'bot' ? 'flex-row' : 'flex-row-reverse')}>
-              <div className={cn("w-12 border rounded-lg flex-shrink-0", message.type === 'bot' ? 'mr-2' : 'ml-2')}>
-                <img src={message.type === 'human' ? reactLogo : viteLogo} className="p-2 w-full h-12" />
+      <section ref={contentRef} className="max-w-5xl mx-auto flex-auto flex flex-col h-0 overflow-y-auto">
+        <div className={cn("px-8 py-4 space-y-4 w-full flex flex-col mt-auto justify-end")}>
+          {messages.map((message, index) => (
+            <div key={index} className={cn('w-full lg:w-3/4 flex flex-col', message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
+              <div className={cn("flex justify-start",
+                message.status === 'loading' ? 'items-stretch' : 'items-start',
+                message.type === 'bot' ? 'flex-row' : 'flex-row-reverse')}>
+                <div className={cn("w-12 border rounded-lg flex-shrink-0", message.type === 'bot' ? 'mr-2' : 'ml-2')}>
+                  <img src={message.type === 'human' ? reactLogo : viteLogo} className="p-2 w-full h-12" />
+                </div>
+                <div className={cn(
+                  "px-4 py-2 rounded-lg",
+                  {
+                    'border border-red-200 bg-red-100': message.status === 'error',
+                    'bg-pink-100': message.status !== 'error' && message.type === 'bot',
+                    'bg-white border border-pink-200': message.type === 'human',
+                  },
+                )}>
+                  {message.status == 'loading' ? (
+                    <div className="flex space-x-2 py-3 items-center">
+                      <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  )}
+                </div>
               </div>
-              <div className={cn(
-                "px-4 py-2 rounded-lg",
-                {
-                  'border border-red-200 bg-red-100': message.status === 'error',
-                  'bg-pink-100': message.status !== 'error' && message.type === 'bot',
-                  'bg-white border border-pink-200': message.type === 'human',
-                },
-              )}>
-                {message.status == 'loading' ? (
-                  <div className="flex space-x-2 py-3 items-center">
-                    <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
-                    <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
-                    <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
-                  </div>
-                ) : (
-                  <p>{message.content}</p>
-                )}
-              </div>
+              {(message.status != 'loading' && message.actions) && (
+                <div className={cn("flex flex-col space-y-4 pt-4 pl-14", message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
+                  {message.actions.map((action, index) => (
+                    <button key={index} onClick={() => onExecuteAction(action)}
+                      className="px-4 py-2 rounded-2xl text-sm text-left border border-pink-100 bg-pink-50 hover:bg-pink-100">{action.label}</button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            {(message.status != 'loading' && message.actions) && (
-              <div className={cn("flex flex-col space-y-4 pt-4 pl-14", message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
-                {message.actions.map((action, index) => (
-                  <button key={index} onClick={() => onExecuteAction(action)}
-                    className="px-4 py-2 rounded-2xl text-sm text-left border border-pink-100 bg-pink-50 hover:bg-pink-100">{action.label}</button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
-      <footer className="px-8 py-4 bg-pink-50">
+      <footer className="flex-none px-8 py-4 bg-pink-50 shadow">
         <div className="max-w-5xl mx-auto space-y-4">
           <div className="flex space-x-4">
             <input ref={inputRef} onKeyDown={(ev) => {
