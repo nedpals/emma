@@ -91,7 +91,11 @@ function App() {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
-      const result = await chain.invoke({ input });
+      const history = messages
+        .filter(msg => msg.status == null)
+        .map(msg => ({type: msg.type, content: msg.content}));
+
+      const result = await chain.invoke({ input, history });
       storeBotMessage(result.answer);
       return result.answer;
     } catch (err) {

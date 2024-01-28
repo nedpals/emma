@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from chain import create_handbook_retrieval_chain
 from embedding import load_embeddings
 from fastapi.templating import Jinja2Templates
+from langchain_core.messages import HumanMessage, AIMessage
 import starlette.status as status
 
 import json
@@ -23,7 +24,7 @@ if environment != "development":
         manifest = json.load(f)
 
 vector = load_embeddings()
-chain = create_handbook_retrieval_chain(vector, history_aware=False)
+chain = create_handbook_retrieval_chain(vector, history_aware=True)
 
 app = FastAPI(
     title=f"{meta.title} API",
@@ -65,6 +66,20 @@ async def catch_all(request: Request, full_path: str):
 
 @app.post("/invoke")
 async def invoke_chain(request: InvokeChainRequest):
+    chat_history = []
+
+    if "history" in request.input:
+        for msg in request.input["history"]:
+            if msg["type"] == "human":
+                chat_history.append(HumanMessage(content=msg["content"]))
+            elif msg["type"] == "ai":
+                chat_history.append(AIMessage(content=msg["content"]))
+
+        request.input["chat_history"] = chat_history
+
+        # delete history from input so it doesn't get passed to the chain
+        del request.input["history"]
+
     result = chain.invoke(request.input, request.config)
     return {
         "answer": result['answer'],

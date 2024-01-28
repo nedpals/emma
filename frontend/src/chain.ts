@@ -3,7 +3,7 @@
 const chain = (() => {
     const url = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 
-    async function invoke(input: { input: string }) {
+    async function invoke(input: { input: string, history: {type: string, content: string}[] }) {
         const res = await fetch(new URL("/invoke", url), {
             method: "POST",
             body: JSON.stringify({
