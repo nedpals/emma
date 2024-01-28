@@ -1,10 +1,9 @@
 import { useRef, useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import chain from './chain';
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { marked } from 'marked';
 
 function cn(...args: ClassValue[]) {
   return twMerge(clsx(args));
@@ -139,36 +138,37 @@ function App() {
 
   return (
     <main className="flex flex-col flex-nowrap h-screen">
-      <header className="flex-none px-8 py-4 bg-pink-50 shadow flex items-center justify-center">
+      <header className="flex-none px-8 py-4 bg-primary-50 shadow flex items-center justify-center">
         <p className="font-bold">Emma</p>
       </header>
 
-      <section ref={contentRef} className="max-w-5xl mx-auto flex-auto flex flex-col h-0 overflow-y-auto">
-        <div className={cn("px-8 py-4 space-y-4 w-full flex flex-col mt-auto justify-end")}>
+      <section ref={contentRef} className="max-w-5xl mx-auto flex-auto flex flex-col h-0 px-4 overflow-y-auto">
+        <div className={cn("lg:-mx-8 px-4 py-4 space-y-4 w-full flex flex-col mt-auto justify-end")}>
           {messages.map((message, index) => (
             <div key={index} className={cn('w-full lg:w-3/4 flex flex-col', message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
               <div className={cn("flex justify-start",
                 message.status === 'loading' ? 'items-stretch' : 'items-start',
                 message.type === 'bot' ? 'flex-row' : 'flex-row-reverse')}>
-                <div className={cn("w-12 border rounded-lg flex-shrink-0", message.type === 'bot' ? 'mr-2' : 'ml-2')}>
-                  <img src={message.type === 'human' ? reactLogo : viteLogo} className="p-2 w-full h-12" />
+                <div
+                  style={{ backgroundImage: `url(/default_avatar.png)` }}
+                  className={cn("bg-cover bg-center bg-no-repeat w-12 h-12 border rounded-lg flex-shrink-0", message.type === 'bot' ? 'mr-2' : 'ml-2')}>
                 </div>
                 <div className={cn(
                   "px-4 py-2 rounded-lg",
                   {
-                    'border border-red-200 bg-red-100': message.status === 'error',
-                    'bg-pink-100': message.status !== 'error' && message.type === 'bot',
-                    'bg-white border border-pink-200': message.type === 'human',
+                    'border border-danger-200 bg-danger-100': message.status === 'error',
+                    'bg-primary-100': message.status !== 'error' && message.type === 'bot',
+                    'bg-white border border-primary-200': message.type === 'human',
                   },
                 )}>
                   {message.status == 'loading' ? (
                     <div className="flex space-x-2 py-3 items-center">
-                      <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
-                      <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
-                      <div className="w-2 h-2 bg-pink-300 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-primary-300 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-primary-300 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-primary-300 rounded-full animate-pulse" />
                     </div>
                   ) : (
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <div className="prose prose-li:marker:text-primary-400 max-w-none" dangerouslySetInnerHTML={{__html: marked.parse(message.content)}}></div>
                   )}
                 </div>
               </div>
@@ -176,7 +176,9 @@ function App() {
                 <div className={cn("flex flex-col space-y-4 pt-4 pl-14", message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
                   {message.actions.map((action, index) => (
                     <button key={index} onClick={() => onExecuteAction(action)}
-                      className="px-4 py-2 rounded-2xl text-sm text-left border border-pink-100 bg-pink-50 hover:bg-pink-100">{action.label}</button>
+                      className="transition-colors px-4 py-2 rounded-2xl text-sm text-left border border-primary-100 bg-primary-50 hover:bg-primary-100">
+                        {action.label}
+                    </button>
                   ))}
                 </div>
               )}
@@ -185,7 +187,7 @@ function App() {
         </div>
       </section>
 
-      <footer className="flex-none px-8 py-4 bg-pink-50 shadow">
+      <footer className="flex-none px-8 py-4 bg-primary-50 shadow">
         <div className="max-w-5xl mx-auto space-y-4">
           <div className="flex space-x-4">
             <input ref={inputRef} onKeyDown={(ev) => {
@@ -194,7 +196,7 @@ function App() {
                 retrieveAndSubmit();
               }
             }} type="text" className="rounded-lg bg-white border px-4 py-4 flex-1" placeholder="What can I help you with?" />
-            <button onClick={retrieveAndSubmit} className="bg-pink-700 hover:bg-pink-800 text-white rounded-full px-8 py-4 font-bold">
+            <button onClick={retrieveAndSubmit} className="transition-colors bg-primary-700 hover:bg-primary-800 text-white rounded-full px-8 py-4 font-bold">
               <svg className="w-6 h-6" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
               </svg>
