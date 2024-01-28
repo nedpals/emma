@@ -162,3 +162,5 @@ cython_debug/
 embeddings_db
 Handbook\ 2018.pdf
 public
+
+activate.sh
