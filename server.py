@@ -24,7 +24,7 @@ if environment != "development":
         manifest = json.load(f)
 
 vector = load_embeddings()
-chain = create_handbook_retrieval_chain(vector, history_aware=False)
+chain = create_handbook_retrieval_chain(vector, history_aware=True)
 
 app = FastAPI(
     title=f"{meta.title} API",
@@ -72,7 +72,7 @@ async def invoke_chain(request: InvokeChainRequest):
         for msg in request.input["history"]:
             if msg["type"] == "human":
                 chat_history.append(HumanMessage(content=msg["content"]))
-            elif msg["type"] == "ai":
+            elif msg["type"] == "bot":
                 chat_history.append(AIMessage(content=msg["content"]))
 
         request.input["chat_history"] = chat_history
