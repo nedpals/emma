@@ -91,7 +91,7 @@ function App() {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
-      const history = messages
+      const history = messages.slice(1)
         .filter(msg => msg.status == null)
         .map(msg => ({type: msg.type, content: msg.content}));
 
