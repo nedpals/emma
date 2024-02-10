@@ -1,7 +1,7 @@
 from llm import llm
-from langchain_community.vectorstores.chroma import Chroma
 from langchain.chains import create_retrieval_chain, create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.vectorstores import VectorStore
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 import meta
 
@@ -30,7 +30,7 @@ non_history_aware_prompt = ChatPromptTemplate.from_template(
     welcome_prompt + base_system_prompt + "Question: {input}"
 )
 
-def create_handbook_retrieval_chain(vector: Chroma, history_aware = True):
+def create_handbook_retrieval_chain(vector: VectorStore, history_aware = True):
     retriever = vector.as_retriever()
     if history_aware:
         retriever_chain = create_history_aware_retriever(llm, retriever, initial_prompt)
