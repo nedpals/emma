@@ -32,6 +32,28 @@ def use_mistral():
 
     return llm, embeddings
 
+# Use this only if you want to run it via Cloudflare Workers AI
+def use_cf_workers():
+    from langchain_community.llms.cloudflare_workersai import CloudflareWorkersAI
+    from langchain_community.embeddings.cloudflare_workersai import CloudflareWorkersAIEmbeddings
+
+    cf_account_id = os.environ.get("CF_ACCOUNT_ID")
+    cf_api_token = os.environ.get("CF_API_TOKEN")
+
+    llm = CloudflareWorkersAI(
+        account_id=cf_account_id,
+        api_token=cf_api_token,
+        model="@cf/mistral/mistral-7b-instruct-v0.1"
+    )
+
+    embeddings = CloudflareWorkersAIEmbeddings(
+        account_id=cf_account_id,
+        api_token=cf_api_token,
+        model_name="@cf/baai/bge-large-en-v1.5",
+    )
+
+    return llm, embeddings
+
 # use_from_env will use the model specified in the MODEL environment variable
 def use_from_env() -> tuple[BaseChatModel, Embeddings]:
     model = os.environ.get("MODEL", "mistral")
@@ -41,6 +63,8 @@ def use_from_env() -> tuple[BaseChatModel, Embeddings]:
             return use_ollama()
         case "mistral":
             return use_mistral()
+        case "cloudflare":
+            return use_cf_workers()
         case _:
             raise ValueError(f"Unknown model: {model}")
 
