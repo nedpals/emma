@@ -228,3 +228,13 @@ def extract_content():
     from langchain_community.document_loaders import PyPDFLoader
     return PyPDFLoader(pdf_path).load()
 
+def extract_content2():
+    from llmsherpa.readers import LayoutPDFReader
+    llmsherpa_api_base_url = os.environ.get("LLMSHERPA_API_URL", "http://127.0.0.1:5010")
+    llmsherpa_api_url = f"{llmsherpa_api_base_url}/api/parseDocument?renderFormat=all&applyOcr=yes&useNewIndentParser=yes"
+
+    pdf_reader = LayoutPDFReader(llmsherpa_api_url)
+    doc = pdf_reader.read_pdf(pdf_path)
+    return map(
+        lambda chunk: Document(page_content=chunk.to_context_text()),
+        doc.chunks())

@@ -1,6 +1,6 @@
 from typing import Literal, List, Iterable
 from llm import embeddings
-from extractor import extract_content
+from extractor import extract_content, extract_content2
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import VectorStore
 from langchain_core.documents import Document
@@ -84,5 +84,6 @@ def initiate_embed(docs: Iterable[Document]):
 
 if __name__ == "__main__":
     initiate_embed(
-        from_splitter(extract_content())
+        # from_splitter(extract_content())
+        extract_content2()
     )
