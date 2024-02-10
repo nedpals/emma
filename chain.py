@@ -13,10 +13,12 @@ initial_prompt = ChatPromptTemplate.from_messages([
 ])
 
 # this prompt will be used to welcome the user
-welcome_prompt = f"Your name is {meta.title} and you are a chatbot. Your description is \"{meta.description}\"."
+welcome_prompt = f"Your name is {meta.title} and you are a chatbot and you are {meta.full_description}"
 
 # this will be the base prompt for the chatbot to ask the user a question both for history aware and non-history aware
-base_system_prompt = "Answer the user's question based only on the below context. Make it straight to the point and without using phrases like 'based on the provided context', 'according to the information given', 'is not provided in the given context'. But hey if you don't know the answer, try to make me laugh instead. Here's the context:\n\n{context}"
+base_system_prompt = """Answer the user's question based only on the below context. Anything that refers to their school is also your school. Make it straight to the point and without using phrases like 'based on the provided context', 'according to the information given', 'is not provided in the given context'. If you don't know the answer, just say that you don't know, don't try to make up an answer. Here's the context:
+
+{context}"""
 
 # this prompt will be used for the chatbot to ask the user a question
 history_aware_prompt = ChatPromptTemplate.from_messages([
