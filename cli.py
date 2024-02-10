@@ -1,9 +1,8 @@
 from langchain_core.messages import HumanMessage, AIMessage
 from chain import create_handbook_retrieval_chain
-from embedding import load_embeddings
+from embedding import load_vector_store
 
-vector = load_embeddings()
-retrieval_chain = create_handbook_retrieval_chain(vector)
+retrieval_chain = create_handbook_retrieval_chain(load_vector_store())
 chat_history = []
 
 while True:

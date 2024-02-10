@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from chain import create_handbook_retrieval_chain
-from embedding import load_embeddings
+from embedding import load_vector_store
 from fastapi.templating import Jinja2Templates
 from langchain_core.messages import HumanMessage, AIMessage
 import starlette.status as status
@@ -23,8 +23,7 @@ if environment != "development":
     with open("public/.vite/manifest.json") as f:
         manifest = json.load(f)
 
-vector = load_embeddings()
-chain = create_handbook_retrieval_chain(vector, history_aware=True)
+chain = create_handbook_retrieval_chain(load_vector_store(), history_aware=True)
 
 app = FastAPI(
     title=f"{meta.title} API",
