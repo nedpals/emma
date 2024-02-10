@@ -53,7 +53,7 @@ def from_splitter(doc: Iterable[Document]):
     text_splitter = RecursiveCharacterTextSplitter()
     return text_splitter.split_documents(doc)
 
-def initiate_embed(docs: Iterable[Document]):
+def initiate_embed(docs: Iterable[Document], max_docs_per_request: int = 2):
     store_type = "local"
     # store_type = "local" if local else "supabase"
 
@@ -67,7 +67,7 @@ def initiate_embed(docs: Iterable[Document]):
                 # this will be a very long process so we should save the embeddings to disk and then load them later
                 load_vector_store(store_type, [doc])
 
-                if i % 2 == 0:
+                if i % max_docs_per_request == 0:
                     # sleep for 1 second every other split to
                     # avoid hitting the mistral rate limit
                     time.sleep(1)
@@ -83,6 +83,9 @@ def initiate_embed(docs: Iterable[Document]):
                 continue
 
 if __name__ == "__main__":
+    max_docs_per_request = int(os.environ.get("MAX_EMBED_COUNT", "2"))
+
     initiate_embed(
-        extract_content_from_env() if os.environ.get("EXTRACTOR", "") == "llmsherpa" else from_splitter(extract_content_from_env())
+        extract_content_from_env() if os.environ.get("EXTRACTOR", "") == "llmsherpa" else from_splitter(extract_content_from_env()),
+        max_docs_per_request
     )
