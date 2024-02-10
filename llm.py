@@ -56,7 +56,7 @@ def use_cf_workers():
 
 # use_from_env will use the model specified in the MODEL environment variable
 def use_from_env() -> tuple[BaseChatModel, Embeddings]:
-    model = os.environ.get("MODEL", "mistral")
+    model = os.environ.get("MODEL", "cloudflare")
 
     match model:
         case "ollama":
