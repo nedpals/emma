@@ -1,6 +1,6 @@
 from typing import Literal, List, Iterable
 from llm import embeddings
-from extractor import extract_content, extract_content2
+from extractor import extract_content_from_env
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import VectorStore
 from langchain_core.documents import Document
@@ -84,6 +84,5 @@ def initiate_embed(docs: Iterable[Document]):
 
 if __name__ == "__main__":
     initiate_embed(
-        # from_splitter(extract_content())
-        extract_content2()
+        extract_content_from_env() if os.environ.get("EXTRACTOR", "") == "llmsherpa" else from_splitter(extract_content_from_env())
     )

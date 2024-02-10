@@ -238,3 +238,16 @@ def extract_content2():
     return map(
         lambda chunk: Document(page_content=chunk.to_context_text()),
         doc.chunks())
+
+def extract_content_from_env():
+    extractor = os.environ.get("EXTRACTOR", "llmsherpa")
+
+    match extractor:
+        case "pypdf":
+            return extract_content()
+        case "llmsherpa":
+            return extract_content2()
+        case "pdf2md":
+            return PDFToMarkdownExtract(pdf_path).extract_content()
+        case _:
+            raise ValueError(f"Unknown extractor: {extractor}")
