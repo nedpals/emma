@@ -1,8 +1,8 @@
-from langchain_core.messages import HumanMessage, AIMessage
-from chain import create_handbook_retrieval_chain
-from embedding import load_vector_store
+from models import UserMessage, AIMessage
+from prompt import RetrievalChain
+from vector_store import load_vector_store
 
-retrieval_chain = create_handbook_retrieval_chain(load_vector_store())
+retrieval_chain = RetrievalChain(load_vector_store(), history_aware=False)
 chat_history = []
 
 while True:
@@ -16,7 +16,7 @@ while True:
     })
 
     answer = result['answer']
-    chat_history.append(HumanMessage(content=question))
-    chat_history.append(AIMessage(content=answer))
+    chat_history.append(UserMessage(question))
+    chat_history.append(AIMessage(answer))
 
     print(answer)

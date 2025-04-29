@@ -1,253 +1,129 @@
-from typing import List, Generator, Iterable, Any
-from langchain_core.documents import Document
-from langchain_community.document_loaders import PDFMinerPDFasHTMLLoader
-from bs4 import BeautifulSoup, element
 import os
-import re
+import glob
+import shutil
+import json
 
-class PDFToMarkdownExtract:
-    def __init__(self, file_path: str):
-        self.file_path = file_path
-        self.loader = PDFMinerPDFasHTMLLoader(self.file_path)
-        self.result = self.loader.load()[0]
-        self.soup = BeautifulSoup(self.result.page_content, 'html.parser')
-        self.raw_pages = self.soup.find("body").find_all("span", recursive=False)
-        self.pages = []
+from pydantic import BaseModel
+from pdf2image import convert_from_path
 
-    def extract_content(self) -> List[Document]:
-        # each span represents a page
-        page_nr = 0
+from llm import get_vision_response
 
-        for page in self.raw_pages:
-            # Smart cast to Tag
-            if type(page) != element.Tag:
-                continue
+class PageSegmentSchema(BaseModel):
+    text_segment: str
+    context: str
+    page_number: int
 
-            # Do not iterate on spans that have content
-            elif len(page.contents) != 0:
-                continue
+class PageSegmentsSchema(BaseModel):
+    segments: list[PageSegmentSchema]
 
-            # Skip other spans that do not have the left:0px; style
-            elif 'left:0px;' not in page.attrs.get("style", ""):
-                continue
+def extract_content(pdf_path="./handbook.pdf"):
+    pages_dir = "./pages"
+    extracted_dir = "./extracted_2"  # Store all pages in a common directory
 
-            # Increment the page number
-            page_nr += 1
+    if os.path.exists(pages_dir):
+        shutil.rmtree(pages_dir)
 
-            # Skip the table of contents from page 2 to 5
-            if page_nr > 1 and page_nr < 6:
-                continue
+    os.makedirs(pages_dir, exist_ok=True)
+    os.makedirs(extracted_dir, exist_ok=True)
 
-            # Get the content of the page
-            children = []
-            sib = page.next_sibling
+    extracted: list[tuple[int, str, str]] = []  # (page_number, context, text)
 
-            while sib != None:
-                if type(sib) == element.Tag and sib.name == "span" and len(sib.contents) == 0:
+    # Extract content from the PDF using pdf2image
+    print("Extracting content from PDF...")
+    convert_from_path(pdf_path, fmt="jpeg", output_folder=pages_dir)
+
+    # Get all jpeg files in pages directory and convert to absolute paths
+    image_paths = [os.path.abspath(p) for p in sorted(glob.glob(os.path.join(pages_dir, "*.jpg")))]
+
+    ocr_prompt = """
+You are an expert at extracting meaningful text segments from images to be used in a Retrieval-Augmented Generation (RAG) system. Your task is to process the provided image and output a structured response containing a concise, self-contained text segment and the page number (if present).  The goal is to create chunks that can be independently understood by a language model for answering questions. Follow these specific instructions carefully:
+
+1. **Content Extraction & Chunking:** Extract all readable text from the image. Focus on extracting *complete* sentences or phrases that represent a single idea or concept. Do not attempt to stitch together incomplete fragments unless they form a coherent unit. Prioritize accuracy and clarity over attempting to "guess" missing words due to OCR errors.
+2. **Contextual Information (Crucial for RAG):**  Before the extracted text, include a brief description of what the segment *is* within the larger document. Examples:
+    * "Section Heading:" followed by the heading text
+    * "Table Caption:" followed by the table caption
+    * "Paragraph from Chapter 2:" (if applicable)
+    * "Definition of [term]:" if defining a term
+    * If no clear context is present, use "Text Segment:"
+3. **Page Number Identification & Formatting:**
+   * **If a page number is visible in the footer,** extract it and format the footer as either: `'[page_number] | 2023 Edition'` OR `'2023 Edition | [page_number]'`.  Use whichever order appears in the image. Replace `[page_number]` with the actual numerical page number.
+   * **If no page number is visible,** set the page number to -1.
+4. **Markdown Conversion (Minimal):** Convert the extracted text into Markdown format *only* as needed for basic readability and structural clarity.  Avoid complex formatting like tables or elaborate lists unless they are essential to understanding the content.  Focus on:
+    * **Headings:** Identify headings and convert them appropriately (e.g., `# Heading 1`, `## Heading 2`).
+    * **Paragraphs:** Separate paragraphs with blank lines.
+5. **Incomplete Content Handling:**
+   * **If the content appears to be cut off or incomplete,** append `[content_incomplete]` to the *end* of the extracted text segment. Do *not* add this tag if it's a cover page or intentionally truncated material.  This is to indicate potential missing information for RAG purposes.
+6. **Output Format:** Your output should be in the following JSON format:
+
+   ```json
+   {
+     "text_segment": "[Extracted text segment with Markdown formatting]",
+     "context": "[Contextual description of the segment]",
+     "page_number": [integer]
+   }
+   ```
+""".strip()
+    for idx, image_path in enumerate(image_paths):
+        print(f"Processing image {idx + 1}/{len(image_paths)}: {image_path}")
+        page_number = idx + 1
+
+        # Check if page cache exists
+        page_cache_file = os.path.join(extracted_dir, f"page_{idx}.json")
+        if os.path.exists(page_cache_file):
+            with open(page_cache_file, 'r') as f:
+                cached_data = json.load(f)
+                if cached_data and "segments" in cached_data:
+                    print(f"Using cached data for page {idx}")
+                    for segment in cached_data["segments"]:
+                        extracted.append((
+                            segment["page_number"], 
+                            segment["context"], 
+                            segment["text_segment"]
+                        ))
+
+                if len(extracted) >= len(image_paths):
+                    print("All pages processed, skipping further processing.")
                     break
-                elif type(sib) == element.NavigableString and sib == "\n":
-                    sib = sib.next_sibling
-                    continue
-                elif sib.attrs.get("style", "") == "position:absolute; top:0px;":
-                    break
-
-                children.append(sib)
-                sib = sib.next_sibling
-
-            if len(children) == 0:
                 continue
 
-            # Add + 2 to page_nr to account for the covers
-            for processed in self.process(page_nr + 2, children, self.result.metadata):
-                self.pages.append(processed)
-                break
+        # Generate the response using the LLM
+        response = get_vision_response(image_path, ocr_prompt, response_format=PageSegmentsSchema, temperature=0.45)
+        
+        segments = []
+        if isinstance(response, PageSegmentsSchema):
+            segments = response.segments
+        elif isinstance(response, dict) and "segments" in response:
+            segments = response["segments"]
+        elif isinstance(response, (dict, str)):
+            # Handle single segment response for backward compatibility
+            text_segment = response.get("text_segment", str(response)) if isinstance(response, dict) else str(response)
+            context = response.get("context", "Text Segment:") if isinstance(response, dict) else "Text Segment:"
+            segments = [PageSegmentSchema(text_segment=text_segment, context=context, page_number=page_number)]
 
-        return self.pages
-
-    def parse_inline_styles(style: str) -> dict:
-        styles = style.split(";")
-        entries = {}
-        for style in styles:
-            if style.strip() == "":
-                continue
-            key, val = style.split(":")
-            entries[key.strip()] = val.strip()
-        return entries
-
-    def get_text(tag: element.Tag):
-        children = tag.contents
-        content = ""
-        for child in children:
-            if type(child) == element.NavigableString:
-                content += child
-            elif type(child) == element.Tag and child.name == "br":
-                content += "\n"
+        page_segments = []
+        for segment in segments:
+            if isinstance(segment, dict):
+                text_segment = segment.get("text_segment", "")
+                context = segment.get("context", "")
             else:
-                break
-        return content
+                text_segment = segment.text_segment
+                context = segment.context
 
-    def extract_styles_and_font_info(self, tag: element.Tag):
-        raw_styles = tag.attrs.get("style", "")
-        styles = self.parse_inline_styles(raw_styles)
+            print(f"Processing segment (page_number: {page_number}): {text_segment[:100]}...")
+            
+            if text_segment.endswith("[content_incomplete]"):
+                text_segment = text_segment[:-len("[content_incomplete]")]
+            
+            extracted.append((page_number, context, text_segment))
+            page_segments.append({
+                "page_number": page_number,
+                "context": context,
+                "text_segment": text_segment
+            })
 
-        # Font info
-        font = str(styles.get("font-family", ""))
-        text_size = styles.get("font-size", "11px")
+        # Cache the page results
+        cached_content = {"segments": page_segments}
+        with open(page_cache_file, 'w') as f:
+            json.dump(cached_content, f)
 
-        # Parse text_size to integer
-        text_size = re.sub(r'[^0-9]', '', text_size)
-        text_size_px = int(text_size) # in pixels
-        return styles, font, text_size_px
-
-    def style_with_markdown(self, tag: element.Tag):
-        # Skip line breaks
-        if tag.name == "br":
-            return "", ""
-
-        # for reference only.
-        ref_text = self.get_text(tag)
-        _, font, text_size_px = self.extract_styles_and_font_info(tag)
-
-        left = ""
-        right = ""
-
-        # For markdown generation
-        heading_level = 0
-        is_bold = False
-        is_italic = False
-
-        if len(ref_text) != 0 and ref_text[0] == "•":
-            return "- ", "\n"
-
-        # Detection
-        if text_size_px == 12:
-            if font == 'MyriadPro-Bold':
-                heading_level = 1
-            elif font == 'MyriadPro-Regular' and ref_text.isupper():
-                heading_level = 2
-            elif font == 'MinionPro-Regular':
-                heading_level = 3
-        elif text_size_px == 11:
-            if font == 'MyriadPro-Bold':
-                if ref_text.isupper():
-                    heading_level = 3
-                else:
-                    heading_level = 4
-
-        if font == 'MinionPro-Bold' or (font == 'MyriadPro-Bold' and text_size_px < 11):
-            is_bold = True
-
-        if font == 'MinionPro-BoldIt' or font == 'MinionPro-SemiboldIt':
-            is_bold = True
-            is_italic = True
-
-        # Generate text goes here
-        if heading_level > 0:
-            left = "#" * min(heading_level, 6) + " "
-
-        if is_bold:
-            left += "**"
-            right += "**"
-
-        if is_italic:
-            left += "*"
-            right += "*"
-
-        if heading_level > 0:
-            right += "\n"
-
-        return left, right
-
-    def to_markdown_multiple(self, children: Iterable[Any]) -> str:
-        content = ""
-
-        for child in children:
-            if type(child) == element.NavigableString:
-                if child.text[0] == "•" or child.text == "\n":
-                    continue
-
-                text = child.text
-                if text[-1] == "\n":
-                    text = text[:-1]
-
-                if child.next_sibling and type(child.next_sibling) == element.Tag and child.next_sibling.name == "br":
-                    next_sib = child.next_sibling
-                    if next_sib.next_sibling and type(next_sib.next_sibling) == element.NavigableString and len(next_sib.next_sibling.text) != 0 and next_sib.next_sibling.text[0].isupper():
-                        # Add newline if next sibling is a new sentence
-                        text += "\n"
-
-                content += text
-            elif type(child) != element.Tag:
-                continue
-            elif child.name == "div" and child.attrs.get("style", "") == "position:absolute; top:0px;" and len(child.contents) != 0 and child.contents[0].text.startswith("Page: "):
-                continue
-            elif self.has_page_indicator(child):
-                continue
-            else:
-                content += self.to_markdown(child)
-
-
-            # add newline only if div or has punctuation
-            if child.name == "div" or (child.parent.name == "div" and len(child.parent.contents) > 1) or (len(content) != 0 and content[-1] in [".", "!", "?"]):
-                content += "\n"
-            elif child.next_sibling and type(child) == element.Tag and child.next_sibling.name == child.name:
-                content += "\n"
-
-        return content
-
-    def to_markdown(self, tag: element.Tag):
-        _, font, _ = self.extract_styles_and_font_info(tag)
-        if font == 'NexaBold' or font == 'NexaLight':
-            # Footer detected. Stop here.
-            return ""
-
-        left, right = self.style_with_markdown(tag)
-        text = self.to_markdown_multiple(tag.contents)
-        return left + text + right
-
-    def has_page_indicator(self, tag: element.Tag) -> bool:
-        if bool(re.match(r"^Page \d+$", tag.text)):
-            return True
-        return False
-
-    def process(self, page_nr: int, children: Iterable[Any], metadata: dict) -> Generator[Document, None, None]:
-        doc_metadata = { "page": page_nr }
-
-        # Add existing metadata to the document
-        for key, val in metadata.items():
-            doc_metadata[key] = val
-
-        content = self.to_markdown_multiple(children)
-
-        if len(content) != 0:
-            yield Document(page_content=content, metadata=doc_metadata)
-
-pdf_path = "Handbook 2018.pdf"
-
-def extract_content():
-    from langchain_community.document_loaders import PyPDFLoader
-    return PyPDFLoader(pdf_path).load()
-
-def extract_content2():
-    from llmsherpa.readers import LayoutPDFReader
-    llmsherpa_api_base_url = os.environ.get("LLMSHERPA_API_URL", "http://127.0.0.1:5010")
-    llmsherpa_api_url = f"{llmsherpa_api_base_url}/api/parseDocument?renderFormat=all&applyOcr=yes&useNewIndentParser=yes"
-
-    pdf_reader = LayoutPDFReader(llmsherpa_api_url)
-    doc = pdf_reader.read_pdf(pdf_path)
-    return map(
-        lambda chunk: Document(page_content=chunk.to_context_text()),
-        doc.chunks())
-
-def extract_content_from_env():
-    extractor = os.environ.get("EXTRACTOR", "llmsherpa")
-
-    match extractor:
-        case "pypdf":
-            return extract_content()
-        case "llmsherpa":
-            return extract_content2()
-        case "pdf2md":
-            return PDFToMarkdownExtract(pdf_path).extract_content()
-        case _:
-            raise ValueError(f"Unknown extractor: {extractor}")
+    return extracted

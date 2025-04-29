@@ -1,72 +1,64 @@
-import os
+import lmstudio as lms
 
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.embeddings import Embeddings
+from typing import BinaryIO, Literal
 
-# Use this only if you want to run it locally via Ollama
-def use_ollama():
-    from langchain.llms.ollama import Ollama
-    from langchain_community.embeddings.ollama import OllamaEmbeddings
+from openai import OpenAI
 
-    llm = Ollama(name="llama2", temperature=0)
-    embeddings = OllamaEmbeddings()
+from models import Message
 
-    return llm, embeddings
+# Derived from the LM Studio server endpoint.
+client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+llm_model = "gemma-3-4b-it-qat"
+vlm_model = "gemma-3-12b-it-qat"
+embedding_model = "text-embedding-nomic-embed-text-v1.5"
 
-# Use this only if you want to run it via Mistral AI
-def use_mistral():
-    from langchain_mistralai.chat_models import ChatMistralAI
-    from langchain_mistralai.embeddings import MistralAIEmbeddings
+def generate_response(prompt: str | list[dict] | list[Message], temperature: float = 0.7, max_tokens: int = -1) -> str:
+    # Generate a response from the model using chat completions
+    if isinstance(prompt, str):
+        messages = [{"role": "user", "content": prompt}]
+    elif isinstance(prompt, list):
+        if all(isinstance(m, dict) for m in prompt):
+            messages = prompt
+        elif all(isinstance(m, Message) for m in prompt):
+            messages = [dict(m) for m in prompt]
+        else:
+            raise TypeError("Unsupported prompt type. Expected list[dict] or list[Message].")
+    else:
+        raise TypeError("Unsupported prompt type. Expected str or list[dict].")
 
-    api_key = os.environ.get("MISTRAL_API_KEY")
+    completion_params = {
+        "model": llm_model,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if max_tokens > 0:
+        completion_params["max_tokens"] = max_tokens
 
-    llm = ChatMistralAI(
-        model="mistral-small",
-        mistral_api_key=api_key,
-        max_tokens=4096,
-        safe_mode=True)
+    response = client.chat.completions.create(**completion_params)
 
-    embeddings = MistralAIEmbeddings(
-        model="mistral-embed",
-        mistral_api_key=api_key)
+    # Extract the generated text from the response
+    generated_text = response.choices[0].message.content.strip()
+    return generated_text
 
-    return llm, embeddings
+def get_vision_response(img_data: str | BinaryIO | bytes, prompt: str, temperature = 0.1, response_format = None):
+    with lms.Client() as client:
+        # Assuming the client has a method to get vision response
+        image_handle = client.files.prepare_image(img_data)
+        model = client.llm.model(vlm_model)
+        chat = lms.Chat()
+        chat.add_user_message(content=prompt, images=[image_handle])
+        prediction = model.respond(chat, response_format=response_format, config={"temperature": temperature})
+        if response_format is not None:
+            return prediction.parsed
+        return prediction.content
 
-# Use this only if you want to run it via Cloudflare Workers AI
-def use_cf_workers():
-    from langchain_community.llms.cloudflare_workersai import CloudflareWorkersAI
-    from langchain_community.embeddings.cloudflare_workersai import CloudflareWorkersAIEmbeddings
-
-    cf_account_id = os.environ.get("CF_ACCOUNT_ID")
-    cf_api_token = os.environ.get("CF_API_TOKEN")
-
-    llm = CloudflareWorkersAI(
-        account_id=cf_account_id,
-        api_token=cf_api_token,
-        model="@cf/mistral/mistral-7b-instruct-v0.1"
+def get_embedding(text: str, purpose: Literal['search_query', 'search_document']):
+    # Generate an embedding for the input text
+    response = client.embeddings.create(
+        model=embedding_model,
+        input=[f'{purpose}: {text}'],
     )
-
-    embeddings = CloudflareWorkersAIEmbeddings(
-        account_id=cf_account_id,
-        api_token=cf_api_token,
-        model_name="@cf/baai/bge-large-en-v1.5",
-    )
-
-    return llm, embeddings
-
-# use_from_env will use the model specified in the MODEL environment variable
-def use_from_env() -> tuple[BaseChatModel, Embeddings]:
-    model = os.environ.get("MODEL", "cloudflare")
-
-    match model:
-        case "ollama":
-            return use_ollama()
-        case "mistral":
-            return use_mistral()
-        case "cloudflare":
-            return use_cf_workers()
-        case _:
-            raise ValueError(f"Unknown model: {model}")
-
-# Change this to use the model you want
-llm, embeddings = use_from_env()
+    
+    # Extract the generated embedding from the response
+    embedding = response.data[0].embedding
+    return embedding

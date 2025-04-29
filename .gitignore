@@ -1,3 +1,5 @@
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -160,9 +162,12 @@ cython_debug/
 #.idea/
 
 embeddings_db
-Handbook\ 2018.pdf
+handbook.pdf
 public
 
 activate.sh
 res.html
 res.txt
+pages
+extracted
+extracted_2

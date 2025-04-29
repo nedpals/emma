@@ -1,91 +1,69 @@
-from typing import Literal, List, Iterable
-from llm import embeddings
-from extractor import extract_content_from_env
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_core.vectorstores import VectorStore
-from langchain_core.documents import Document
-from requests.exceptions import ConnectionError
-
 import time
 import os
 
-local = os.environ.get("LOCAL", "1") == "1"
+from typing import Iterable, Tuple
 
-def load_vector_store(source: Literal["local", "supabase"] = "", documents: List[Document] = []) -> VectorStore:
-    if len(source) == 0:
-        source = "local" if local else "supabase"
+from requests.exceptions import ConnectionError
 
-    if source == "local":
-        from langchain_community.vectorstores.chroma import Chroma
+from llm import get_embedding
+from extractor import extract_content
+from vector_store import load_vector_store
+from nlp import extract_keywords, nlp
 
-        if documents and len(documents) > 0:
-            return Chroma.from_documents(
-                documents,
-                persist_directory="./embeddings_db",
-                embedding=embeddings)
-
-        return Chroma(
-            persist_directory="./embeddings_db",
-            embedding_function=embeddings)
-    else:
-        import supabase
-        from langchain_community.vectorstores.supabase import SupabaseVectorStore
-
-        supabaseUrl = os.environ["SUPABASE_URL"]
-        supabaseKey = os.environ["SUPABASE_SERVICE_KEY"]
-        supabaseClient = supabase.Client(supabaseUrl, supabaseKey)
-
-        if documents and len(documents) > 0:
-            return SupabaseVectorStore.from_documents(
-                client=supabaseClient,
-                table_name="documents",
-                query_name="match_documents",
-                embedding=embeddings,
-                documents=documents)
-
-        return SupabaseVectorStore(
-            client=supabaseClient,
-            table_name="documents",
-            query_name="match_documents",
-            embedding=embeddings)
-
-def from_splitter(doc: Iterable[Document]):
-    text_splitter = RecursiveCharacterTextSplitter()
-    return text_splitter.split_documents(doc)
-
-def initiate_embed(docs: Iterable[Document], max_docs_per_request: int = 2):
-    store_type = "local"
-    # store_type = "local" if local else "supabase"
-
+def embed_documents(docs: Iterable[Tuple[int, str, str]], max_docs_per_request: int = 2, extra_tags: list[str] = None):
+    vector_store = load_vector_store()
+    
     for i, doc in enumerate(docs):
         while True:
             try:
-                print(f"Embedding split {i+1} of {len(docs)}")
+                print(f"Embedding split {i+1}")
+                
+                page_number, context_meta, content = doc
+                content_keywords = extract_keywords(content)
 
-                # mistral has a limit of 16384 tokens per request so we need to split the document into chunks
-                # and then embed each chunk individually and then combine the chunks into a single embedding
-                # this will be a very long process so we should save the embeddings to disk and then load them later
-                load_vector_store(store_type, [doc])
+                # Additional: extract keywords from context and
+                context_keywords = extract_keywords(context_meta)
+                content_keywords = list(set(content_keywords + context_keywords))
+
+                # Add extra tags if provided
+                if extra_tags:
+                    content_keywords.extend(extra_tags)
+
+                content_keywords = list(set(content_keywords))  # Remove duplicates
+
+                metadata = {
+                    "page_number": page_number,
+                    "context": context_meta,
+                    # Add keyword tags
+                    **{f"tag_{keyword}": True for keyword in content_keywords}
+                }
+                print(f"  - Extracted keywords: {content_keywords[:10]}...")
+
+                embedding = get_embedding(content, 'search_document')
+                vector_store.add(
+                    embeddings=[embedding],
+                    documents=[content],
+                    metadatas=[metadata],
+                    ids=[f"doc_{i}"]
+                )
 
                 if i % max_docs_per_request == 0:
-                    # sleep for 1 second every other split to
-                    # avoid hitting the mistral rate limit
                     time.sleep(1)
 
                 break
-            except KeyError:
-                print("Key error, retrying in 5 seconds")
-                time.sleep(5)
-                continue
-            except ConnectionError:
-                print("Connection error, retrying in 5 seconds")
+            except (KeyError, ConnectionError):
+                print("Error occurred, retrying in 5 seconds")
                 time.sleep(5)
                 continue
 
 if __name__ == "__main__":
-    max_docs_per_request = int(os.environ.get("MAX_EMBED_COUNT", "2"))
+    if nlp is None:
+        print("Exiting due to missing spaCy model.")
+    else:
+        max_docs_per_request = int(os.environ.get("MAX_EMBED_COUNT", "2"))
+        print("Extracting content...")
+        docs_iterable = extract_content() # Assuming this returns an iterable/generator
 
-    initiate_embed(
-        extract_content_from_env() if os.environ.get("EXTRACTOR", "") == "llmsherpa" else from_splitter(extract_content_from_env()),
-        max_docs_per_request
-    )
+        print("Starting embedding process...")
+        embed_documents(docs_iterable, max_docs_per_request, extra_tags=["uic", "school", "university", "university of immaculate conception"])
+        print("Embedding process finished.")
