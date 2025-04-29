@@ -1,5 +1,6 @@
 export default {
     primary: {
+        "25": "#F5F8FF",
         "50": "#fdf2f2",
         "100": "#fce4e7",
         "200": "#f8c9d0",

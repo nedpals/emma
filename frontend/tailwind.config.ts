@@ -36,10 +36,7 @@ export default {
       }
     },
     colors: {
-      primary: {
-        25: '#F5F8FF', // Add this line
-        ...colorPalette.primary
-      },
+      primary: colorPalette.primary,
       danger: colorPalette.danger,
       warning: colorPalette.warning,
       success: colorPalette.success,
