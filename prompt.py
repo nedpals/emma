@@ -60,9 +60,10 @@ Context:
 def load_alternative_query_prompt(input: str) -> list[Message]:
     """
     Generates a prompt to ask the LLM for alternative phrasings of the user's query.
+    Also translates non-English queries to English if detected.
     """
     return [
-        SystemMessage("You are an expert query generator. Your goal is to rephrase the user's question in 2-3 different ways to improve search results in a vector database containing a school handbook. Focus on using synonyms, different sentence structures, or breaking down the question if complex. Respond ONLY with the alternative queries, each on a new line. Do not include the original query."),
+        SystemMessage("You are an expert query generator and translator. Your goal is to rephrase the user's question in 2-3 different ways to improve search results in a vector database containing a school handbook. If the query is not in English, first provide the English translation as the first alternative, then provide 1-2 additional rephrased versions in English. For English queries, focus on using synonyms, different sentence structures, or breaking down the question if complex. Respond ONLY with the alternative queries, each on a new line. Do not include the original query."),
         UserMessage(f"Generate alternative search queries for: '{input}'")
     ]
 
@@ -118,6 +119,13 @@ class RetrievalChain:
         # 2. Extract keywords from the USER INPUT for filtering
         # Using spaCy for potentially better keyword extraction from the query
         input_keywords = extract_keywords(input_text, use_fallback=True, include_verb=True)
+
+        # Include keywords from the alternative queries
+        for query in alternative_queries:
+            query_keywords = extract_keywords(query, use_fallback=True, include_verb=True)
+            input_keywords.extend(query_keywords)
+
+        input_keywords = list(set(input_keywords))
 
         print(f"Extracted keywords from input for filtering: {input_keywords}")
 
