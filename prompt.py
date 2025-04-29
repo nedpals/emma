@@ -5,7 +5,7 @@ import meta
 from chromadb import Collection
 
 from llm import generate_response, get_embedding
-from models import Message, UserMessage, SystemMessage
+from models import Message, UserMessage
 from nlp import extract_keywords
     
 def cosine_similarity(vec1, vec2):
@@ -20,24 +20,6 @@ def cosine_similarity(vec1, vec2):
         return 0.0
     return np.dot(vec1, vec2) / (norm1 * norm2)
 
-# this prompt will be used to generate a search query to look up in the document
-def load_search_prompt(input: str, chat_history: list[Message] = []) -> list[Message]:
-    """
-    Load the prompt messages for generating a search query.
-    
-    Args:
-        input: The user's current question
-        chat_history: Previous conversation messages
-    
-    Returns:
-        List of messages to generate an effective search query
-    """
-    return [
-        SystemMessage("You are a search query optimizer. Your task is to extract key terms and concepts from the conversation to create effective search queries. Focus on specific terms, names, and important concepts."),
-        *chat_history,
-        UserMessage(f"For the question: '{input}', extract 2-4 key terms or phrases that would be most relevant for searching the school handbook. Focus on specific nouns, policies, or procedures mentioned. Respond with just the search terms, no explanation needed.")
-    ]
-
 # this will be the base prompt for the chatbot to ask the user a question both for history aware and non-history aware
 # Define general tone and structure, incorporate specifics from meta
 base_system_prompt_template = f"""
@@ -46,9 +28,11 @@ base_system_prompt_template = f"""
 **Your Tone:** Be helpful, informative, and maintain a slightly formal, respectful tone appropriate for a university setting. Be concise and clear in your answers.
 
 **General Instructions:**
-- Answer questions based *only* on the provided context below.
+- Answer questions based *only* on the provided context below. Consider all parts of the context provided.
+- If the question requires simple reasoning or calculation based *directly* on the information in the context, perform it. For example, if the context states "3 tardies equal 1 absence" and the user asks "How many tardies equal 8 absences?", you should calculate and state the answer (e.g., "24 tardies equal 8 absences.").
+- **Apply the information and results from the context (including any calculations you perform) to answer related follow-up questions.** Recognize synonyms or closely related terms (e.g., 'late' and 'tardy') when applying the context. If a previous step established a fact (like 24 tardies = 8 absences), use that fact to answer subsequent questions about the consequences (e.g., "what happens with 8 absences?").
 - Do not use introductory phrases like "Based on the context..." or "The context states...". Answer directly.
-- If the answer is not found in the context, state clearly: "I don't have information on that specific topic based on the handbook." Do not invent answers or provide information outside the handbook.
+- If the answer or the information needed for reasoning/calculation is not found in the context, state clearly: "I don't have information on that specific topic based on the handbook." Do not invent answers or provide information outside the handbook.
 - {meta.additional_prompt}
 
 Context:
@@ -57,14 +41,22 @@ Context:
 ---
 """.strip()
 
-def load_alternative_query_prompt(input: str) -> list[Message]:
+def load_alternative_query_prompt(input: str, chat_history: list[Message]) -> list[Message]:
     """
-    Generates a prompt to ask the LLM for alternative phrasings of the user's query.
+    Generates a prompt to ask the LLM for alternative phrasings of the user's query,
+    considering the conversation history.
     Also translates non-English queries to English if detected.
     """
+    system_prompt = """You are an expert query generator and translator. Your goal is to rephrase the user's latest question in 2-3 different ways to improve search results in a vector database containing a school handbook, considering the preceding conversation context.
+
+Instructions:
+1.  Analyze the provided chat history and the latest user question.
+2.  If the latest question is not in English, provide the English translation as the first alternative. Then provide 1-2 additional rephrased versions in English, informed by the context.
+3.  For English questions, generate 2-3 alternative phrasings. Focus on using synonyms, different sentence structures, or breaking down the question if complex, while maintaining the core intent revealed in the conversation.
+4.  Respond ONLY with the alternative queries, each on a new line. Do not include the original query or any explanations."""
     return [
-        SystemMessage("You are an expert query generator and translator. Your goal is to rephrase the user's question in 2-3 different ways to improve search results in a vector database containing a school handbook. If the query is not in English, first provide the English translation as the first alternative, then provide 1-2 additional rephrased versions in English. For English queries, focus on using synonyms, different sentence structures, or breaking down the question if complex. Respond ONLY with the alternative queries, each on a new line. Do not include the original query."),
-        UserMessage(f"Generate alternative search queries for: '{input}'")
+        *chat_history,
+        UserMessage(f"{system_prompt}\n\nGenerate alternative search queries for the last question: '{input}'"),
     ]
 
 # this will be the initial prompt for the chatbot to ask the user a question
@@ -79,13 +71,11 @@ def load_prompt(input: str, context: str, chat_history: list[Message] | None = N
     # If non-history aware, structure prompt differently
     if chat_history is None:
         return [
-            SystemMessage(formatted_system_prompt),
-            UserMessage(f"Question: {input}"),
+            UserMessage(f"{formatted_system_prompt}\n\nQuestion: {input}"),
         ]
     return [
-        SystemMessage(formatted_system_prompt),
         *chat_history,
-        UserMessage(input),
+        UserMessage(f"{formatted_system_prompt}\n\nQuestion: {input}"),
     ]
 
 class RetrievalChain:
@@ -99,14 +89,14 @@ class RetrievalChain:
         """
         chat_history = inputs.get("chat_history", [])
         input_text = inputs.get("input", "")
-        n_results = inputs.get("n_results", 10)
+        n_results = inputs.get("n_results", 11)
 
         if not self.history_aware:
             # If history is not aware, clear the chat history
             chat_history = None
 
         # 1. Generate alternative queries if the input is too complex
-        alternative_query_prompt = load_alternative_query_prompt(input_text)
+        alternative_query_prompt = load_alternative_query_prompt(input_text, chat_history)
         alternative_queries_str = generate_response(alternative_query_prompt, temperature=0.2)
         alternative_queries = [q.strip() for q in alternative_queries_str.split('\n') if q.strip()]
         print(f"Generated alternative queries: {alternative_queries}")
@@ -181,13 +171,14 @@ class RetrievalChain:
         else:
             final_context_docs = []
 
-        print(f"Retrieved {len(final_context_docs)} unique documents total.")
-        print(f"Final Context documents: {final_context_docs}")
+        # print(f"Retrieved {len(final_context_docs)} unique documents total.")
+        # print(f"Final Context documents: {final_context_docs}")
         context = "\n\n".join(final_context_docs) if final_context_docs else "No relevant context found."
 
         # 3. Generate final response
         final_prompt_messages = load_prompt(input_text, context, chat_history)
+        print(final_prompt_messages)
         return {
-            "answer": generate_response(final_prompt_messages, temperature=0.5)
+            "answer": generate_response(final_prompt_messages, temperature=0.55)
         }
 
