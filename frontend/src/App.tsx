@@ -16,7 +16,7 @@ type MessageAction = {
 }
 
 interface Message {
-  type: 'human' | 'bot'
+  role: 'user' | 'assistant'
   content: string
   status?: 'loading' | 'error'
   actions?: MessageAction[]
@@ -37,7 +37,7 @@ const sampleQuestions = [
 function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
-      type: 'bot',
+      role: 'assistant',
       content: "Hi there! I'm Emma, your friendly UIC chatbot assistant. I'm here to help you with any questions or concerns you may have as a student at the University of the Immaculate Conception. Let's work together to uphold our values of faith, excellence, and service. Have a great day!",
       actions: sampleQuestions.map((question) => ({
         command: 'input_question',
@@ -54,7 +54,7 @@ function App() {
     setMessages(msg => {
       const lastMessage = msg[msg.length - 1];
 
-      if (lastMessage.type === 'bot' && lastMessage.status === 'loading') {
+      if (lastMessage.role === 'assistant' && lastMessage.status === 'loading') {
         return [...msg.slice(0, msg.length - 1), {
           ...lastMessage,
           content: message,
@@ -63,7 +63,7 @@ function App() {
       }
 
       return [...msg, {
-        type: 'bot',
+        role: 'assistant',
         content: message,
         status
       }]
@@ -75,11 +75,11 @@ function App() {
 
     setMessages(msg => [...msg,
       {
-        type: 'human',
+        role: 'user',
         content: input
       },
       {
-        type: 'bot',
+        role: 'assistant',
         content: '',
         status: 'loading'
       }
@@ -91,11 +91,8 @@ function App() {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
-      const history = messages.slice(1)
-        .filter(msg => msg.status == null)
-        .map(msg => ({type: msg.type, content: msg.content}));
-
-      const result = await chain.invoke({ input, history });
+      const history = messages.slice(1).filter(msg => msg.status == null);
+      const result = await chain.invoke({ input, chat_history: history });
       storeBotMessage(result.answer);
       return result.answer;
     } catch (err) {
@@ -149,20 +146,20 @@ function App() {
       <section ref={contentRef} className="max-w-5xl mx-auto flex-auto flex flex-col h-0 px-4 overflow-y-auto">
         <div className={cn("lg:-mx-8 px-4 py-4 space-y-4 w-full flex flex-col mt-auto justify-end")}>
           {messages.map((message, index) => (
-            <div key={index} className={cn('w-full lg:w-3/4 flex flex-col', message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
+            <div key={index} className={cn('w-full lg:w-3/4 flex flex-col', message.role === 'assistant' ? 'items-start' : 'ml-auto items-end')}>
               <div className={cn("flex justify-start",
                 message.status === 'loading' ? 'items-stretch' : 'items-start',
-                message.type === 'bot' ? 'flex-row' : 'flex-row-reverse')}>
+                message.role === 'assistant' ? 'flex-row' : 'flex-row-reverse')}>
                 <div
                   style={{ backgroundImage: `url(/default_avatar.png)` }}
-                  className={cn("bg-cover bg-center bg-no-repeat w-12 h-12 border rounded-lg flex-shrink-0", message.type === 'bot' ? 'mr-2' : 'ml-2')}>
+                  className={cn("bg-cover bg-center bg-no-repeat w-12 h-12 border rounded-lg flex-shrink-0", message.role === 'assistant' ? 'mr-2' : 'ml-2')}>
                 </div>
                 <div className={cn(
                   "px-4 py-2 rounded-lg",
                   {
                     'border border-danger-200 bg-danger-100': message.status === 'error',
-                    'bg-primary-100': message.status !== 'error' && message.type === 'bot',
-                    'bg-white border border-primary-200': message.type === 'human',
+                    'bg-primary-100': message.status !== 'error' && message.role === 'assistant',
+                    'bg-white border border-primary-200': message.role === 'user',
                   },
                 )}>
                   {message.status == 'loading' ? (
@@ -177,7 +174,7 @@ function App() {
                 </div>
               </div>
               {(message.status != 'loading' && message.actions) && (
-                <div className={cn("flex flex-col space-y-4 pt-4 pl-14", message.type === 'bot' ? 'items-start' : 'ml-auto items-end')}>
+                <div className={cn("flex flex-col space-y-4 pt-4 pl-14", message.role === 'assistant' ? 'items-start' : 'ml-auto items-end')}>
                   {message.actions.map((action, index) => (
                     <button key={index} onClick={() => onExecuteAction(action)}
                       className="transition-colors px-4 py-2 rounded-2xl text-sm text-left border border-primary-100 bg-primary-50 hover:bg-primary-100">

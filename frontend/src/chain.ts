@@ -3,7 +3,7 @@
 const chain = (() => {
     const url = import.meta.env.VITE_API_URL ?? window.location.origin;
 
-    async function invoke(input: { input: string, history: {type: string, content: string}[] }) {
+    async function invoke(input: { input: string, chat_history: {role: string, content: string}[] }) {
         const res = await fetch(new URL("/invoke", url), {
             method: "POST",
             body: JSON.stringify({
