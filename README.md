@@ -1,5 +1,3 @@
-# emma
-
 ![Emma - The Interactive Handbook for Ignatian Marians](/.github/banner.png)
 
 ## 🌟 About Emma
