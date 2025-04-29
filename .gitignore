@@ -163,7 +163,6 @@ cython_debug/
 
 embeddings_db
 handbook.pdf
-public
 
 activate.sh
 res.html

@@ -42,6 +42,56 @@ interface MessageBubbleProps {
   onActionClick?: (action: MessageAction) => void
 }
 
+import * as React from "react";
+
+const Logo = ({ showIcon = false, ...props }: React.SVGProps<SVGSVGElement> & { showIcon?: boolean }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 289 114" fill="none" {...props}>
+    {/* Words */}
+    <g clipPath="url(#a)" className={cn(
+      "transition-all duration-300",
+      // move words to the center if showIcon is false
+      showIcon ? "translate-x-0" : "translate-x-8"
+    )}>
+      <path
+        fill="#58162B"
+        d="M24 80.302q-10.32 0-15.32-4.68-4.96-4.68-4.96-13.6v-4.76q0-8.84 4.64-13.56 4.68-4.72 13.6-4.72 6 0 10 2.08t6 5.92q2.04 3.84 2.04 9.2v1.36q0 1.48-.16 3-.12 1.521-.36 2.88h-9.92q.12-2.28.16-4.28t.04-3.6q0-2.68-.84-4.48-.84-1.84-2.56-2.8t-4.4-.96q-3.96 0-5.84 2.16-1.84 2.16-1.84 6.2v3.6l.04 1.2v3q0 1.72.56 3.2t1.88 2.6q1.32 1.08 3.56 1.72 2.241.6 5.64.6 3.68 0 7-.76a38.3 38.3 0 0 0 6.4-2.12l-.92 8.48q-2.679 1.44-6.36 2.28-3.64.84-8.08.84M9.52 63.422v-7.08h27.76v7.08zm81.835 15.92v-23.72q0-2.24-.56-3.88-.56-1.68-1.88-2.56-1.32-.92-3.6-.92-2 0-3.52.8-1.48.76-2.44 2.08-.96 1.28-1.4 2.96l-1.16-5.64h1.08q.64-2.56 2.04-4.64 1.44-2.12 3.92-3.36 2.52-1.28 6.36-1.28 4.24 0 6.92 1.68 2.68 1.64 3.92 4.96 1.28 3.28 1.28 8.16v25.36zm-48.32 0v-39.24h10.96l-.4 10.16.44.4v28.68zm24.16 0v-23.72q0-2.24-.56-3.88-.56-1.68-1.88-2.56-1.32-.92-3.56-.92-2.04 0-3.52.8-1.48.76-2.44 2.08-.96 1.28-1.44 2.96l-1.72-5.64h2q.6-2.64 2-4.72 1.401-2.08 3.84-3.32t6.12-1.24q5.48 0 8.24 2.84 2.8 2.8 3.52 8.16.12.76.24 1.88.12 1.08.12 2v25.28zm87.738 0v-23.72q0-2.24-.56-3.88-.56-1.68-1.88-2.56-1.32-.92-3.6-.92-2 0-3.52.8-1.48.76-2.44 2.08-.96 1.28-1.4 2.96l-1.16-5.64h1.08q.64-2.56 2.04-4.64 1.44-2.12 3.92-3.36 2.52-1.28 6.36-1.28 4.24 0 6.92 1.68 2.68 1.64 3.92 4.96 1.28 3.28 1.28 8.16v25.36zm-48.32 0v-39.24h10.96l-.4 10.16.44.4v28.68zm24.16 0v-23.72q0-2.24-.56-3.88-.56-1.68-1.88-2.56-1.32-.92-3.56-.92-2.04 0-3.52.8-1.48.76-2.44 2.08-.96 1.28-1.44 2.96l-1.72-5.64h2q.6-2.64 2-4.72 1.401-2.08 3.84-3.32t6.12-1.24q5.48 0 8.24 2.84 2.8 2.8 3.52 8.16.12.76.24 1.88.12 1.08.12 2v25.28zm62.099 0 .36-9.68-.28-.8v-12.28l-.04-1.68q0-3.64-2.04-5.36t-6.72-1.72q-4.04 0-7.6 1.04a52 52 0 0 0-6.56 2.4l.92-8.64q1.8-.879 4.08-1.68 2.32-.84 5.12-1.32 2.8-.52 6.04-.52 4.96 0 8.32 1.16t5.36 3.32q2.04 2.12 2.92 5.12.92 2.961.92 6.6v24.04zm-12.72.92q-5.88 0-8.92-2.92-3.04-2.96-3.04-8.36v-1.12q0-5.76 3.52-8.48 3.56-2.76 11.24-3.8l10.92-1.48.64 6.88-9.92 1.4q-3.2.44-4.52 1.52-1.28 1.08-1.28 3.2v.36q0 2.04 1.28 3.2 1.32 1.16 4.12 1.16 2.48 0 4.28-.76 1.8-.759 2.92-2.04a8.3 8.3 0 0 0 1.68-2.88l1.56 5.04h-1.88a14 14 0 0 1-2 4.6q-1.401 2.04-3.96 3.28-2.52 1.2-6.64 1.2"
+      ></path>
+    </g>
+    {/* Icon */}
+    <g className={cn(
+      "transition-all duration-300",
+      showIcon ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"
+    )}>
+      <path
+        fill="#B42D4F"
+        d="M269.255 25.578a.497.497 0 0 1 .9-.229l3.316 4.761a.5.5 0 0 0 .356.21l5.799.599a.49.49 0 0 1 .23.893l-4.794 3.294a.5.5 0 0 0-.208.326l-.003.027-.604 5.758c-.047.454-.638.604-.899.229l-3.317-4.761a.5.5 0 0 0-.356-.21l-5.798-.599a.492.492 0 0 1-.231-.893l4.795-3.293a.5.5 0 0 0 .211-.354z"
+      ></path>
+      <path
+        fill="#B42D4F"
+        fillRule="evenodd"
+        d="M254.614 17.304c-22.237 0-33.75 14.029-33.75 31.333l.234 15.23c.313 20.39 19.06 35.297 38.992 30.386 3.452-.85 6.405-1.548 8.976-2.04l-3.753-5.258c1.665-1.513 3.868-4.173 5.246-6.864-3.024 2.535-7.225 4.122-7.225 4.122a26 26 0 0 1-8.72 1.499c-14.261 0-25.822-11.48-25.822-25.641v-6.497a4.84 4.84 0 0 1 3.596-4.693q.99-.26 1.952-.502l-.014.001.163-.038q.947-.236 1.871-.452a2 2 0 0 0 1.276-1.464l1.55-7.31.355 5.75c.071 1.148 1.1 2 2.25 1.862l.535-.065c12.122-2.115 21.597-1.255 34.529 2.21a4.845 4.845 0 0 1 3.581 4.691v6.507c0 5.524-1.76 10.64-4.752 14.826l-4.35 16.921c6.379-.982 10.2-.334 13.818 2.97 1.142 1.044 3.212.346 3.212-1.195V48.637c0-8.44-2.836-16.1-8.274-21.733l-.033.317c-.17 1.627-2.288 2.166-3.225.82l-.873-1.254-1.527-.157c-1.639-.17-2.182-2.272-.827-3.203l1.199-.823c-5.282-3.347-12.047-5.3-20.19-5.3m16.865 7.136c-1.112-1.596-3.623-.957-3.825.973l-.551 5.251-4.373 3.004c-1.607 1.104-.964 3.598.98 3.798l5.289.547 3.025 4.342c1.111 1.596 3.623.958 3.825-.972l.55-5.252 4.373-3.004c1.607-1.104.964-3.597-.979-3.798l-5.289-.547z"
+        clipRule="evenodd"
+      ></path>
+      <path
+        fill="#B42D4F"
+        d="M274.521 24.742a.164.164 0 0 0 .077.297l2.188.227q.064.007.108.055l.011.014 1.251 1.797a.165.165 0 0 0 .3-.077l.228-2.172a.16.16 0 0 1 .07-.118l1.809-1.242a.164.164 0 0 0-.077-.298l-2.188-.226a.16.16 0 0 1-.118-.07l-1.252-1.797a.165.165 0 0 0-.3.077l-.227 2.172a.16.16 0 0 1-.071.118z"
+      ></path>
+      <path
+        fill="#B42D4F"
+        d="M241.834 62c2.232 0 4.04-1.68 4.04-3.75s-1.808-3.751-4.04-3.751c-2.231 0-4.039 1.68-4.039 3.75 0 2.072 1.808 3.751 4.039 3.751"
+      ></path>
+      <path
+        fill="#B42D4F"
+        d="m262.292 68.194-14.62 2.435a.798.798 0 0 0-.533 1.238l2.302 3.358c.171.249.473.381.774.342 8.079-1.062 10.788-1.945 12.915-6.298.275-.563-.216-1.178-.838-1.075"
+      ></path>
+      <path
+        fill="#B42D4F"
+        d="M260.318 59.306c2.278-1.214 3.807-1.676 5.125-1.656 1.298.02 2.573.509 4.347 1.615.565.352 1.31.183 1.665-.378.354-.56.184-1.3-.381-1.653-1.916-1.195-3.644-1.953-5.595-1.982-1.932-.029-3.9.66-6.303 1.941a1.195 1.195 0 0 0-.493 1.624 1.21 1.21 0 0 0 1.635.489"
+      ></path>
+    </g>
+  </svg>
+);
+
 function AnimatedTextRenderer({ 
   text, 
   className,
@@ -134,7 +184,7 @@ function MessageBubble({ role, content, status, actions, onActionClick }: Messag
       <div className="flex items-start gap-3">
         {role === 'assistant' && (
           <div className="w-11 h-11 rounded-xl bg-primary-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <span className="text-white font-semibold text-sm">E</span>
+            <img src="/star.png" alt="Emma Star" className="w-6 h-auto p-0.5" />
           </div>
         )}
         
@@ -207,9 +257,10 @@ function WelcomeOverlay({ onActionClick }: { onActionClick: (action: MessageActi
   };
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-b from-primary-25/95 via-primary-50/95 to-primary-100/95 animate-fadeIn">
+    <div className="absolute inset-0 flex items-center justify-center p-4 bg-gradient-to-b from-primary-25/95 via-primary-50/95 to-primary-100/95 animate-fadeIn pt-16">
       <div className="max-w-2xl w-full">
         <div className="text-center mb-8">
+          <img src="/emma_icon.png" alt="Emma Logo" className="w-32 h-auto mx-auto mb-8" />
           <h1 className="text-4xl font-bold text-primary-900 mb-4">{getTimeBasedGreeting()}!<br className="md:hidden" /> What can I do for you?</h1>
           <div className="prose prose-md mx-auto text-primary-900/70">
             <p>Hi! I'm Emma, your AI companion for everything UIC. Whether you need guidance on academic policies, 
@@ -396,9 +447,9 @@ function App() {
     <main className="flex flex-col h-screen bg-gradient-to-br from-primary-25 via-primary-50/80 to-primary-100/50">
       {/* Header */}
       <header className={cn(
-        "flex-none flex items-center px-6 py-3.5 transition-colors duration-200",
-        "border-b border-primary-100/60 relative z-10",
-        isHeaderTransparent ? "bg-transparent" : "bg-primary-50/60 backdrop-blur-md"
+        "flex-none flex items-center px-6 py-1.5 transition-colors duration-200 justify-center",
+        "fixed w-full inset-x-0 z-50",
+        isHeaderTransparent ? "bg-transparent" : "bg-primary-50/60 border-b border-primary-100/60 backdrop-blur-md"
       )}>
         <button onClick={() => {
           setHasStarted(false);
@@ -407,15 +458,15 @@ function App() {
           setIsSubmitting(false);
           inputRef.current!.value = '';
           adjustTextareaHeight();
-        }} className="flex justify-center space-x-4 max-w-3xl w-full mx-auto">
-          <span className="text-lg font-medium text-primary-900">Emma</span>
+        }}>
+          <Logo className="w-32 h-auto" showIcon={hasStarted} />
         </button>
       </header>
 
       {/* Chat content */}
       <section 
         ref={contentRef} 
-        className="flex-auto flex flex-col h-0 overflow-y-auto px-4 md:px-6 scrollbar-thin scrollbar-thumb-primary-200/50 scrollbar-track-transparent relative"
+        className="flex-auto flex flex-col h-0 overflow-y-auto px-4 md:px-6 scrollbar-thin scrollbar-thumb-primary-200/50 scrollbar-track-transparent relative pt-12"
       >
         {!hasStarted && <WelcomeOverlay onActionClick={onExecuteAction} />}
         <div className="max-w-3xl w-full mx-auto flex flex-col py-6">
