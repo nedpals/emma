@@ -1,8 +1,8 @@
 ![Emma - The Interactive Handbook for Ignatian Marians](/.github/banner.png)
 
-## 🌟 About Emma
+**Emma** is an AI-powered interactive handbook designed specifically for Ignatian Marians at the University of the Immaculate Conception (UIC). She provides instant answers about academic policies, campus life, and student services - no handbook skimming required.
 
-Emma is an AI-powered interactive handbook designed specifically for Ignatian Marians at UIC. She provides instant answers about academic policies, campus life, and student services - no handbook skimming required.
+<img src=".github/screenshot.png" alt="Emma Demo" width="800" style="margin: 0 auto; display: block;"/>
 
 ## 🚀 Features
 
@@ -14,7 +14,7 @@ Emma is an AI-powered interactive handbook designed specifically for Ignatian Ma
 ## 🛠️ Technology
 
 Emma is built using:
-- [Google Gemma 3](https://ai.google.dev/gemma) / [Google Gemini](https://ai.google.dev/gemini) - For natural language understanding and generation
+- [Google Gemma 3](https://ai.google.dev/gemma) - For natural language understanding and generation
 - [LM Studio](https://lmstudio.ai/) - For local model deployment and management
 - [Tailwind CSS](https://tailwindcss.com/) - For responsive and elegant UI design
 - [Vite](https://vitejs.dev/) - For lightning-fast frontend development
