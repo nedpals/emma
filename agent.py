@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+import asyncio
+from collections.abc import AsyncGenerator
+from typing import Any, TypedDict, Union
 
 from providers import (
     LLMProvider,
@@ -8,6 +10,31 @@ from providers import (
     TextResponse,
 )
 from tools import ToolRegistry
+
+
+class ToolStartEvent(TypedDict):
+    type: str  # "tool_start"
+    tool: str
+    arguments: dict[str, Any]
+
+
+class ToolEndEvent(TypedDict):
+    type: str  # "tool_end"
+    tool: str
+    success: bool
+
+
+class AnswerEvent(TypedDict):
+    type: str  # "answer"
+    answer: str
+
+
+class ErrorEvent(TypedDict):
+    type: str  # "error"
+    message: str
+
+
+AgentEvent = Union[ToolStartEvent, ToolEndEvent, AnswerEvent, ErrorEvent]
 
 
 class Agent:
@@ -23,16 +50,11 @@ class Agent:
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
 
-    def run(
+    async def run(
         self,
         input: str,
         chat_history: list[dict],
-        on_event: Callable[[dict], Any] | None = None,
-    ) -> str:
-        def emit(event: dict) -> None:
-            if on_event is not None:
-                on_event(event)
-
+    ) -> AsyncGenerator[AgentEvent, None]:
         messages: list[dict] = [
             {"role": "system", "content": self.system_prompt},
             *chat_history,
@@ -43,30 +65,31 @@ class Agent:
         iterations = 0
 
         while iterations < self.max_iterations:
-            response: LLMResponse = self.provider.generate_with_tools(
+            response: LLMResponse = await asyncio.to_thread(
+                self.provider.generate_with_tools,
                 messages=messages,
                 tools=tool_defs,
             )
 
             if isinstance(response, TextResponse):
-                emit({"type": "answer", "answer": response.content})
-                return response.content
+                yield AnswerEvent(type="answer", answer=response.content)
+                return
 
             for tc in response.calls:
-                emit({"type": "tool_start", "tool": tc.name, "arguments": tc.arguments})
+                yield ToolStartEvent(type="tool_start", tool=tc.name, arguments=tc.arguments)
 
                 tool = self.registry.get(tc.name)
                 if tool is None:
                     tool_content = f"Error: Tool '{tc.name}' not found."
-                    emit({"type": "tool_end", "tool": tc.name, "success": False})
+                    yield ToolEndEvent(type="tool_end", tool=tc.name, success=False)
                 else:
                     try:
-                        result = tool.execute(**tc.arguments)
+                        result = await asyncio.to_thread(tool.execute, **tc.arguments)
                         tool_content = result.content
-                        emit({"type": "tool_end", "tool": tc.name, "success": result.success})
+                        yield ToolEndEvent(type="tool_end", tool=tc.name, success=result.success)
                     except Exception as e:
                         tool_content = f"Error: {e}"
-                        emit({"type": "tool_end", "tool": tc.name, "success": False})
+                        yield ToolEndEvent(type="tool_end", tool=tc.name, success=False)
 
                 messages.append({
                     "role": "assistant",
@@ -90,6 +113,5 @@ class Agent:
             "role": "user",
             "content": "Please respond now with the information you have.",
         })
-        final = self.provider.generate(messages)
-        emit({"type": "answer", "answer": final})
-        return final
+        final = await asyncio.to_thread(self.provider.generate, messages)
+        yield AnswerEvent(type="answer", answer=final)

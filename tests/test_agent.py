@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 import pytest
 
 from providers import TextResponse, ToolCall, ToolCallResponse
@@ -32,13 +32,32 @@ def _make_agent(provider=None, max_iterations=5):
     )
 
 
-def test_agent_returns_text_response_directly():
+async def _collect_events(agent, input, chat_history=None):
+    """Helper to collect all events from the async generator."""
+    events = []
+    async for event in agent.run(input, chat_history=chat_history or []):
+        events.append(event)
+    return events
+
+
+def _get_answer(events):
+    """Extract the answer from collected events."""
+    for event in events:
+        if event["type"] == "answer":
+            return event["answer"]
+    return None
+
+
+@pytest.mark.asyncio
+async def test_agent_returns_text_response_directly():
     agent = _make_agent()
-    result = agent.run("hi", chat_history=[])
-    assert result == "Hello!"
+    events = await _collect_events(agent, "hi")
+    assert _get_answer(events) == "Hello!"
+    assert len(events) == 1
 
 
-def test_agent_executes_tool_and_returns_final_response():
+@pytest.mark.asyncio
+async def test_agent_executes_tool_and_returns_final_response():
     provider = MagicMock()
     provider.generate_with_tools.side_effect = [
         ToolCallResponse(calls=[ToolCall(id="1", name="echo", arguments={"text": "world"})]),
@@ -46,13 +65,14 @@ def test_agent_executes_tool_and_returns_final_response():
     ]
 
     agent = _make_agent(provider=provider)
-    result = agent.run("echo world", chat_history=[])
+    events = await _collect_events(agent, "echo world")
 
-    assert result == "The echo said: world"
+    assert _get_answer(events) == "The echo said: world"
     assert provider.generate_with_tools.call_count == 2
 
 
-def test_agent_fires_events():
+@pytest.mark.asyncio
+async def test_agent_yields_tool_events():
     provider = MagicMock()
     provider.generate_with_tools.side_effect = [
         ToolCallResponse(calls=[ToolCall(id="1", name="echo", arguments={"text": "test"})]),
@@ -60,8 +80,7 @@ def test_agent_fires_events():
     ]
 
     agent = _make_agent(provider=provider)
-    events = []
-    agent.run("test", chat_history=[], on_event=events.append)
+    events = await _collect_events(agent, "test")
 
     event_types = [e["type"] for e in events]
     assert "tool_start" in event_types
@@ -69,7 +88,8 @@ def test_agent_fires_events():
     assert "answer" in event_types
 
 
-def test_agent_handles_unknown_tool():
+@pytest.mark.asyncio
+async def test_agent_handles_unknown_tool():
     provider = MagicMock()
     provider.generate_with_tools.side_effect = [
         ToolCallResponse(calls=[ToolCall(id="1", name="nonexistent", arguments={})]),
@@ -77,12 +97,13 @@ def test_agent_handles_unknown_tool():
     ]
 
     agent = _make_agent(provider=provider)
-    result = agent.run("use nonexistent", chat_history=[])
+    events = await _collect_events(agent, "use nonexistent")
 
-    assert result == "Sorry, I couldn't find that tool"
+    assert _get_answer(events) == "Sorry, I couldn't find that tool"
 
 
-def test_agent_respects_max_iterations():
+@pytest.mark.asyncio
+async def test_agent_respects_max_iterations():
     provider = MagicMock()
     provider.generate_with_tools.return_value = ToolCallResponse(
         calls=[ToolCall(id="1", name="echo", arguments={"text": "loop"})]
@@ -90,14 +111,15 @@ def test_agent_respects_max_iterations():
     provider.generate.return_value = "Forced final response"
 
     agent = _make_agent(provider=provider, max_iterations=2)
-    result = agent.run("loop forever", chat_history=[])
+    events = await _collect_events(agent, "loop forever")
 
-    assert result == "Forced final response"
+    assert _get_answer(events) == "Forced final response"
     assert provider.generate_with_tools.call_count == 2
     assert provider.generate.call_count == 1
 
 
-def test_agent_handles_tool_execution_error():
+@pytest.mark.asyncio
+async def test_agent_handles_tool_execution_error():
     from agent import Agent
     from tools import Tool, ToolRegistry, ToolResult
 
@@ -125,16 +147,17 @@ def test_agent_handles_tool_execution_error():
         max_iterations=5,
     )
 
-    result = agent.run("do something", chat_history=[])
-    assert result == "Tool failed, here's my best answer"
+    events = await _collect_events(agent, "do something")
+    assert _get_answer(events) == "Tool failed, here's my best answer"
 
 
-def test_agent_includes_system_prompt_in_messages():
+@pytest.mark.asyncio
+async def test_agent_includes_system_prompt_in_messages():
     provider = MagicMock()
     provider.generate_with_tools.return_value = TextResponse(content="hi")
 
     agent = _make_agent(provider=provider)
-    agent.run("hello", chat_history=[])
+    await _collect_events(agent, "hello")
 
     call_args = provider.generate_with_tools.call_args
     messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
