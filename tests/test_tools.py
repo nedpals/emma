@@ -94,3 +94,54 @@ def test_calculate_tool_metadata():
     tool = CalculateTool()
     assert tool.name == "calculate"
     assert "math" in tool.description.lower() or "calcul" in tool.description.lower()
+
+
+import json
+import os
+import tempfile
+
+
+def test_get_page_returns_segments_for_page():
+    from tools.get_page import GetPageTool
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data = {
+            "segments": [
+                {"page_number": "5", "context": "Attendance", "text_segment": "3 tardies equal 1 absence"},
+                {"page_number": "5", "context": "Attendance", "text_segment": "Max 6 absences per semester"},
+                {"page_number": "6", "context": "Grading", "text_segment": "Grading scale info"},
+            ]
+        }
+        path = os.path.join(tmpdir, "page_0.json")
+        with open(path, "w") as f:
+            json.dump(data, f)
+
+        tool = GetPageTool(extracted_dir=tmpdir)
+        result = tool.execute(page_number=5)
+
+    assert result.success is True
+    assert "3 tardies equal 1 absence" in result.content
+    assert "Max 6 absences per semester" in result.content
+    assert "Grading scale info" not in result.content
+
+
+def test_get_page_not_found():
+    from tools.get_page import GetPageTool
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        data = {"segments": [{"page_number": "1", "context": "Intro", "text_segment": "Hello"}]}
+        path = os.path.join(tmpdir, "page_0.json")
+        with open(path, "w") as f:
+            json.dump(data, f)
+
+        tool = GetPageTool(extracted_dir=tmpdir)
+        result = tool.execute(page_number=999)
+
+    assert result.success is False
+    assert "No content found" in result.content
+
+
+def test_get_page_tool_metadata():
+    from tools.get_page import GetPageTool
+    tool = GetPageTool(extracted_dir="/tmp")
+    assert tool.name == "get_page"
