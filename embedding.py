@@ -5,14 +5,14 @@ from typing import Iterable, Tuple
 
 from requests.exceptions import ConnectionError
 
-from llm import get_embedding
+from llm import provider
 from extractor import extract_content
 from vector_store import load_vector_store
 from nlp import extract_keywords, nlp
 
 def embed_documents(docs: Iterable[Tuple[int, str, str]], max_docs_per_request: int = 2, extra_tags: list[str] = None):
     vector_store = load_vector_store()
-    
+
     for i, doc in enumerate(docs):
         while True:
             try:
@@ -39,7 +39,7 @@ def embed_documents(docs: Iterable[Tuple[int, str, str]], max_docs_per_request: 
                 }
                 print(f"  - Extracted keywords: {content_keywords[:10]}...")
 
-                embedding = get_embedding(content, 'search_document')
+                embedding = provider.embed(content, 'search_document')
                 vector_store.add(
                     embeddings=[embedding],
                     documents=[content],
