@@ -154,7 +154,6 @@ def test_search_handbook_returns_results_with_grounding_reminder():
     from tools.search_handbook import SearchHandbookTool
 
     mock_provider = MagicMock()
-    mock_provider.generate.return_value = "alternative query 1\nalternative query 2"
     mock_provider.embed.return_value = [0.1, 0.2, 0.3]
 
     mock_collection = MagicMock()
@@ -168,15 +167,15 @@ def test_search_handbook_returns_results_with_grounding_reminder():
         result = tool.execute(query="attendance policy")
 
     assert result.success is True
-    assert "attendance policy" in result.content.lower() or "Doc about" in result.content
+    assert "Doc about attendance policy" in result.content
     assert "Answer using ONLY the information above" in result.content
+    mock_provider.embed.assert_called_once_with("attendance policy", "search_query")
 
 
 def test_search_handbook_no_results():
     from tools.search_handbook import SearchHandbookTool
 
     mock_provider = MagicMock()
-    mock_provider.generate.return_value = "alt query"
     mock_provider.embed.return_value = [0.1, 0.2, 0.3]
 
     mock_collection = MagicMock()
