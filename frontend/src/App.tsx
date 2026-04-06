@@ -405,8 +405,13 @@ function App() {
           }
         }
       });
-      storeBotMessage(result.answer);
-      return result.answer;
+      if (result.answer) {
+        storeBotMessage(result.answer);
+        return result.answer;
+      } else {
+        storeBotMessage('Sorry, I encountered an error. Please try again.', 'error');
+        return null;
+      }
     } catch (err) {
       console.error(err);
       storeBotMessage('Sorry, I encountered an error. Please try again.', 'error');
