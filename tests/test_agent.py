@@ -163,3 +163,16 @@ async def test_agent_includes_system_prompt_in_messages():
     messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
     assert messages[0]["role"] == "system"
     assert "test assistant" in messages[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_agent_yields_error_on_provider_failure():
+    provider = MagicMock()
+    provider.generate_with_tools.side_effect = RuntimeError("LM Studio is down")
+
+    agent = _make_agent(provider=provider)
+    events = await _collect_events(agent, "hello")
+
+    assert len(events) == 1
+    assert events[0]["type"] == "error"
+    assert "LM Studio is down" in events[0]["message"]

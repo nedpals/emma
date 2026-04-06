@@ -18,11 +18,13 @@ async def main():
                 print(f"  [Using {event['tool']}...]")
             elif event["type"] == "answer":
                 answer = event["answer"]
+            elif event["type"] == "error":
+                print(f"  Error: {event['message']}")
 
-        chat_history.append({"role": "user", "content": question})
-        chat_history.append({"role": "assistant", "content": answer})
-
-        print(answer)
+        if answer:
+            chat_history.append({"role": "user", "content": question})
+            chat_history.append({"role": "assistant", "content": answer})
+            print(answer)
 
 
 if __name__ == "__main__":

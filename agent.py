@@ -65,11 +65,15 @@ class Agent:
         iterations = 0
 
         while iterations < self.max_iterations:
-            response: LLMResponse = await asyncio.to_thread(
-                self.provider.generate_with_tools,
-                messages=messages,
-                tools=tool_defs,
-            )
+            try:
+                response: LLMResponse = await asyncio.to_thread(
+                    self.provider.generate_with_tools,
+                    messages=messages,
+                    tools=tool_defs,
+                )
+            except Exception as e:
+                yield ErrorEvent(type="error", message=str(e))
+                return
 
             if isinstance(response, TextResponse):
                 yield AnswerEvent(type="answer", answer=response.content)
@@ -113,5 +117,8 @@ class Agent:
             "role": "user",
             "content": "Please respond now with the information you have.",
         })
-        final = await asyncio.to_thread(self.provider.generate, messages)
-        yield AnswerEvent(type="answer", answer=final)
+        try:
+            final = await asyncio.to_thread(self.provider.generate, messages)
+            yield AnswerEvent(type="answer", answer=final)
+        except Exception as e:
+            yield ErrorEvent(type="error", message=str(e))
