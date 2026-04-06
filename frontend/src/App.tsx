@@ -19,6 +19,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   status?: 'loading' | 'error'
+  statusText?: string
   actions?: MessageAction[]
 }
 
@@ -38,6 +39,7 @@ interface MessageBubbleProps {
   role: Message['role']
   content: string
   status?: Message['status']
+  statusText?: string
   actions?: MessageAction[]
   onActionClick?: (action: MessageAction) => void
 }
@@ -171,7 +173,7 @@ function AnimatedTextRenderer({
   );
 }
 
-function MessageBubble({ role, content, status, actions, onActionClick }: MessageBubbleProps) {
+function MessageBubble({ role, content, status, statusText, actions, onActionClick }: MessageBubbleProps) {
   return (
     <div className="flex flex-col gap-1.5 w-full mb-6">
       {/* Speaker label */}
@@ -200,10 +202,15 @@ function MessageBubble({ role, content, status, actions, onActionClick }: Messag
           } 
         )}>
           {status === 'loading' ? (
-            <div className="flex items-center space-x-2 h-full px-2 py-5">
-              <div className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex items-center gap-3 h-full px-2 py-5">
+              <div className="flex items-center space-x-1.5">
+                <div className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+              {statusText && (
+                <span className="text-xs text-primary-600/70 animate-fadeIn">{statusText}</span>
+              )}
             </div>
           ) : (
             role === 'assistant' && status !== 'error' ? (
@@ -350,12 +357,28 @@ function App() {
     });
   }
 
+  const updateStatusText = (text: string) => {
+    setMessages(msg => {
+      const lastMessage = msg[msg.length - 1];
+      if (lastMessage?.role === 'assistant' && lastMessage?.status === 'loading') {
+        return [...msg.slice(0, -1), { ...lastMessage, statusText: text }];
+      }
+      return msg;
+    });
+  };
+
+  const toolDisplayNames: Record<string, string> = {
+    search_handbook: 'Searching handbook',
+    get_page: 'Looking up page',
+    calculate: 'Calculating',
+  };
+
   const onSubmit = async (input: string) => {
     if (!input) return null;
-    
+
     setIsSubmitting(true);
     setHasStarted(true);
-    
+
     setMessages(msg => [...msg,
       {
         role: 'user',
@@ -372,7 +395,16 @@ function App() {
 
     try {
       const history = messages.filter(msg => msg.status == null);
-      const result = await chain.invoke({ input, chat_history: history });
+      const result = await chain.invoke({ input, chat_history: history }, {
+        onEvent(event) {
+          if (event.type === 'tool_start') {
+            const label = toolDisplayNames[event.tool] ?? event.tool;
+            updateStatusText(`${label}...`);
+          } else if (event.type === 'tool_end') {
+            updateStatusText('');
+          }
+        }
+      });
       storeBotMessage(result.answer);
       return result.answer;
     } catch (err) {
@@ -476,6 +508,7 @@ function App() {
                 role={message.role}
                 content={message.content}
                 status={message.status}
+                statusText={message.statusText}
                 actions={message.actions}
                 onActionClick={onExecuteAction}
               />
