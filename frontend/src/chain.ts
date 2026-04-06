@@ -1,25 +1,56 @@
-// Using LangServe does not work as the chain input was not inferred correctly.
-// Instead, we use a custom chain implementation that uses fetch.
+import { fetchEventSource } from '@microsoft/fetch-event-source';
+
+type ChainEvent =
+    | { type: "tool_start"; tool: string; arguments: Record<string, unknown> }
+    | { type: "tool_end"; tool: string; success: boolean }
+    | { type: "answer"; answer: string }
+    | { type: "error"; message: string };
+
+type InvokeCallbacks = {
+    onEvent?: (event: ChainEvent) => void;
+};
+
 const chain = (() => {
     const url = import.meta.env.VITE_API_URL ?? window.location.origin;
 
-    async function invoke(input: { input: string, chat_history: {role: string, content: string}[] }) {
-        const res = await fetch(new URL("/invoke", url), {
+    async function invoke(
+        input: { input: string; chat_history: { role: string; content: string }[] },
+        callbacks?: InvokeCallbacks,
+    ): Promise<{ answer: string }> {
+        let answer = "";
+        let error: Error | null = null;
+
+        await fetchEventSource(new URL("/invoke", url).toString(), {
             method: "POST",
             body: JSON.stringify({
                 config: {},
                 kwargs: {},
-                input
+                input,
             }),
             headers: {
                 "Content-Type": "application/json",
             },
+            onmessage(ev) {
+                const event: ChainEvent = JSON.parse(ev.data);
+                callbacks?.onEvent?.(event);
+
+                if (event.type === "answer") {
+                    answer = event.answer;
+                } else if (event.type === "error") {
+                    error = new Error(event.message);
+                }
+            },
+            onerror(err) {
+                throw err;
+            },
         });
 
-        return await res.json();
+        if (error) throw error;
+        return { answer };
     }
 
     return { invoke };
-})()
+})();
 
+export type { ChainEvent, InvokeCallbacks };
 export default chain;
