@@ -16,8 +16,8 @@ MAX_CONTEXT_CHARS = 6000
 class SearchHandbookTool(Tool):
     name = "search_handbook"
     description = (
-        "Search the UIC student handbook. Provide multiple query variations "
-        "for better coverage (e.g. synonyms, different phrasings)."
+        "Search the UIC student handbook. You MUST provide at least 3 different query variations "
+        "for better coverage. Include synonyms, different phrasings, and both broad and specific terms."
     )
     parameters = {
         "type": "object",
@@ -25,12 +25,13 @@ class SearchHandbookTool(Tool):
             "queries": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "3-5 search query variations to find information in the handbook. Use different phrasings, synonyms, and specificity levels for better results.",
+                "minItems": 3,
+                "description": "At least 3 search query variations (required). Include: the original phrasing, a synonym/rephrase, and a broader or more specific version.",
             },
             "n_results": {
                 "type": "integer",
-                "description": "Number of results to retrieve per query (default 5)",
-                "default": 5,
+                "description": "Number of results to retrieve per query (default 3)",
+                "default": 3,
             },
         },
         "required": ["queries"],
@@ -65,7 +66,7 @@ class SearchHandbookTool(Tool):
 
     def execute(self, **kwargs) -> ToolResult:
         queries = kwargs.get("queries", [])
-        n_results = kwargs.get("n_results", 5)
+        n_results = kwargs.get("n_results", 3)
 
         # Support single string for model flexibility
         if isinstance(queries, str):
@@ -106,7 +107,7 @@ class SearchHandbookTool(Tool):
                 success=False,
             )
 
-        # Cap context size to avoid overflowing the model's context window
+        # Cap total context size
         parts: list[str] = []
         total = 0
         for doc in docs:

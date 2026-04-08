@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import os
 
 from agent_setup import create_agent
 
-logging.basicConfig(level=logging.INFO, format="  %(name)s: %(message)s")
+log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, log_level, logging.INFO), format="  %(name)s: %(message)s")
 
 agent = create_agent()
 chat_history = []
