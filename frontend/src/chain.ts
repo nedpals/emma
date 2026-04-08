@@ -31,7 +31,13 @@ const chain = (() => {
                 "Content-Type": "application/json",
             },
             onmessage(ev) {
-                const event: ChainEvent = JSON.parse(ev.data);
+                if (!ev.data) return;
+                let event: ChainEvent;
+                try {
+                    event = JSON.parse(ev.data);
+                } catch {
+                    return;
+                }
                 callbacks?.onEvent?.(event);
 
                 if (event.type === "answer") {
