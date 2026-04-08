@@ -30,7 +30,7 @@ Emma is built using:
 - Git
 - [LM Studio](https://lmstudio.ai/) with the following models downloaded and available:
   - `gemma-4-E4B-it` (text, vision/OCR)
-  - `text-embedding-nomic-embed-text-v1.5` (embeddings)
+  - `text-embedding-nomic-embed-text-v2-moe` (embeddings)
 
 ### Local Setup
 1. Clone the repository
@@ -69,7 +69,7 @@ Emma uses ChromaDB as its vector store to enable semantic search capabilities. T
 **Method 1: Using LM Studio (Recommended for local processing)**
 
 1.  Place your handbook documents (PDF format) in the project's root directory (e.g., `handbook.pdf`).
-2.  Ensure LM Studio is running and serving the required models (`gemma-4-E4B-it` and `text-embedding-nomic-embed-text-v1.5`) at `http://localhost:1234`.
+2.  Ensure LM Studio is running and serving the required models (`gemma-4-E4B-it` and `text-embedding-nomic-embed-text-v2-moe`) at `http://localhost:1234`.
 3.  Run the embedding script. Choose one of the following commands:
     *   **Standard Speed:** Processes documents in smaller batches (default: 2). Suitable for systems with limited resources.
         ```bash
@@ -79,7 +79,7 @@ Emma uses ChromaDB as its vector store to enable semantic search capabilities. T
         ```bash
         MAX_EMBED_COUNT=600 python embedding.py
         ```
-4.  The script will first use `gemma-4-E4B-it` to extract text segments from each page of the PDF via vision/OCR, caching the results in the `extracted_2` directory. Then, it will use `text-embedding-nomic-embed-text-v1.5` to create vector embeddings for each segment.
+4.  The script will first use `gemma-4-E4B-it` to extract text segments from each page of the PDF via vision/OCR, caching the results in the `extracted_2` directory. Then, it will use `text-embedding-nomic-embed-text-v2-moe` to create vector embeddings for each segment.
 5.  The embeddings and vector store data will be persisted in the `embeddings_db` directory.
 
 **Method 2: Using Google AI Studio (Alternative for text extraction)**
@@ -93,7 +93,7 @@ This method is useful if you encounter issues with local vision model processing
 5.  Copy the entire JSON output.
 6.  Create a new file named `page_0.json` inside the `extracted_2` directory within your local project folder (create the `extracted_2` directory if it doesn't exist).
 7.  Paste the copied JSON content into `extracted_2/page_0.json` and save the file.
-8.  Ensure LM Studio is running and serving *only* the required embedding model (`text-embedding-nomic-embed-text-v1.5`) at `http://localhost:1234`.
+8.  Ensure LM Studio is running and serving *only* the required embedding model (`text-embedding-nomic-embed-text-v2-moe`) at `http://localhost:1234`.
 9.  Run the embedding script (choose standard or faster speed as described in Method 1):
     ```bash
     # Standard speed
