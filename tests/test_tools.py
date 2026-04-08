@@ -166,7 +166,7 @@ def test_search_handbook_returns_results_with_grounding_reminder():
 
     assert result.success is True
     assert "Doc about attendance policy" in result.content
-    assert "Answer using ONLY the information above" in result.content
+    assert "Base your answer on the information above" in result.content
 
 
 def test_search_handbook_multiple_queries_deduplicates():

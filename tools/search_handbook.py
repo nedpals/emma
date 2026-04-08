@@ -9,7 +9,7 @@ from tools import Tool, ToolResult
 log = logging.getLogger(__name__)
 
 
-GROUNDING_REMINDER = "\n\n---\nAnswer using ONLY the information above. If the answer is not found above, say so."
+GROUNDING_REMINDER = "\n\n---\nBase your answer on the information above. You may reason about or build upon this content, but do not invent facts not found here."
 MAX_CONTEXT_CHARS = 6000
 
 
