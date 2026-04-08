@@ -5,5 +5,5 @@ provider = LMStudioProvider(
     api_key="lm-studio",
     llm_model="gemma-4-E4B-it",
     vlm_model="gemma-4-E4B-it",
-    embedding_model="text-embedding-nomic-embed-text-v1.5",
+    embedding_model="text-embedding-nomic-embed-text-v2-moe",
 )
