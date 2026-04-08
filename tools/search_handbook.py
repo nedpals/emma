@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 
 GROUNDING_REMINDER = "\n\n---\nAnswer using ONLY the information above. If the answer is not found above, say so."
-MAX_CONTEXT_CHARS = 3000
+MAX_CONTEXT_CHARS = 6000
 
 
 class SearchHandbookTool(Tool):
@@ -25,7 +25,7 @@ class SearchHandbookTool(Tool):
             "queries": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "2-3 search query variations to find information in the handbook. Use different phrasings for better results.",
+                "description": "3-5 search query variations to find information in the handbook. Use different phrasings, synonyms, and specificity levels for better results.",
             },
             "n_results": {
                 "type": "integer",
