@@ -400,8 +400,6 @@ function App() {
           if (event.type === 'tool_start') {
             const label = toolDisplayNames[event.tool] ?? event.tool;
             updateStatusText(`${label}...`);
-          } else if (event.type === 'tool_end') {
-            updateStatusText('');
           }
         }
       });
