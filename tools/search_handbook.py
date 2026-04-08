@@ -1,8 +1,12 @@
+import logging
+
 from chromadb import Collection
 
 from nlp import extract_keywords
 from providers import LLMProvider
 from tools import Tool, ToolResult
+
+log = logging.getLogger(__name__)
 
 
 GROUNDING_REMINDER = "\n\n---\nAnswer using ONLY the information above. If the answer is not found above, say so."
@@ -70,8 +74,14 @@ class SearchHandbookTool(Tool):
         if not queries:
             return ToolResult(content="Error: queries is required", success=False)
 
+        log.info(f"Search queries: {queries} (n_results={n_results})")
+
         # Primary: pure vector search
         docs = self._search(queries, n_results)
+
+        log.info(f"Vector search returned {len(docs)} docs")
+        for i, doc in enumerate(docs):
+            log.debug(f"  [{i}] ({len(doc)} chars) {doc[:80]}...")
 
         # Last resort: keyword filter (may surface tagged docs that vector search missed)
         if not docs:
@@ -80,10 +90,12 @@ class SearchHandbookTool(Tool):
                 all_keywords.extend(extract_keywords(q, use_fallback=True, include_verb=True))
             all_keywords = list(set(all_keywords))
 
+            log.info(f"Keyword fallback with: {all_keywords}")
             if all_keywords:
                 or_conditions = [{f"tag_{kw}": {"$eq": True}} for kw in all_keywords]
                 where_filter = {"$or": or_conditions} if len(or_conditions) > 1 else or_conditions[0]
                 docs = self._search(queries, n_results, where_filter)
+                log.info(f"Keyword fallback returned {len(docs)} docs")
 
         if not docs:
             return ToolResult(
@@ -105,6 +117,8 @@ class SearchHandbookTool(Tool):
 
         context = "\n\n".join(parts)
         result_count = f"({len(parts)} of {len(docs)} results shown)"
+
+        log.info(f"Returning {len(parts)} of {len(docs)} docs ({total} chars)")
 
         return ToolResult(
             content=f"{result_count}\n\n{context}{GROUNDING_REMINDER}",
