@@ -14,7 +14,7 @@
 ## 🛠️ Technology
 
 Emma is built using:
-- [Google Gemma 3](https://ai.google.dev/gemma) - For natural language understanding and generation
+- [Google Gemma 4](https://ai.google.dev/gemma) - For natural language understanding and generation
 - [LM Studio](https://lmstudio.ai/) - For local model deployment and management
 - [Tailwind CSS](https://tailwindcss.com/) - For responsive and elegant UI design
 - [Vite](https://vitejs.dev/) - For lightning-fast frontend development
@@ -27,9 +27,8 @@ Emma is built using:
 - Python (v3.9 or higher)
 - Git
 - [LM Studio](https://lmstudio.ai/) with the following models downloaded and available:
-  - `gemma-3-4b-it-qat`
-  - `gemma-3-12b-it-qat` (optional, for vision/OCR during ingestion)
-  - `text-embedding-nomic-embed-text-v1.5`
+  - `gemma-4-E4B-it` (text, vision/OCR)
+  - `text-embedding-nomic-embed-text-v1.5` (embeddings)
 
 ### Local Setup
 1. Clone the repository
@@ -68,7 +67,7 @@ Emma uses ChromaDB as its vector store to enable semantic search capabilities. T
 **Method 1: Using LM Studio (Recommended for local processing)**
 
 1.  Place your handbook documents (PDF format) in the project's root directory (e.g., `handbook.pdf`).
-2.  Ensure LM Studio is running and serving the required models (`gemma-3-12b-it-qat` for vision and `text-embedding-nomic-embed-text-v1.5` for embeddings) at `http://localhost:1234`.
+2.  Ensure LM Studio is running and serving the required models (`gemma-4-E4B-it` and `text-embedding-nomic-embed-text-v1.5`) at `http://localhost:1234`.
 3.  Run the embedding script. Choose one of the following commands:
     *   **Standard Speed:** Processes documents in smaller batches (default: 2). Suitable for systems with limited resources.
         ```bash
@@ -78,7 +77,7 @@ Emma uses ChromaDB as its vector store to enable semantic search capabilities. T
         ```bash
         MAX_EMBED_COUNT=600 python embedding.py
         ```
-4.  The script will first use the vision model (`gemma-3-12b-it-qat`) to extract text segments from each page of the PDF, caching the results in the `extracted_2` directory. Then, it will use the embedding model (`text-embedding-nomic-embed-text-v1.5`) to create vector embeddings for each segment.
+4.  The script will first use `gemma-4-E4B-it` to extract text segments from each page of the PDF via vision/OCR, caching the results in the `extracted_2` directory. Then, it will use `text-embedding-nomic-embed-text-v1.5` to create vector embeddings for each segment.
 5.  The embeddings and vector store data will be persisted in the `embeddings_db` directory.
 
 **Method 2: Using Google AI Studio (Alternative for text extraction)**

@@ -55,7 +55,7 @@ Instructions:
 3.  For English questions, generate 2-3 alternative phrasings. Focus on using synonyms, different sentence structures, or breaking down the question if complex, while maintaining the core intent revealed in the conversation.
 4.  Respond ONLY with the alternative queries, each on a new line. Do not include the original query or any explanations."""
     return [
-        *chat_history,
+        *(chat_history or []),
         UserMessage(f"{system_prompt}\n\nGenerate alternative search queries for the last question: '{input}'"),
     ]
 
