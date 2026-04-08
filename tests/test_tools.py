@@ -162,9 +162,7 @@ def test_search_handbook_returns_results_with_grounding_reminder():
     }
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
-
-    with patch("tools.search_handbook.extract_keywords", return_value=["attendance"]):
-        result = tool.execute(queries=["attendance policy"])
+    result = tool.execute(queries=["attendance policy"])
 
     assert result.success is True
     assert "Doc about attendance policy" in result.content
@@ -184,9 +182,7 @@ def test_search_handbook_multiple_queries_deduplicates():
     ]
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
-
-    with patch("tools.search_handbook.extract_keywords", return_value=[]):
-        result = tool.execute(queries=["query one", "query two"])
+    result = tool.execute(queries=["query one", "query two"])
 
     assert result.success is True
     assert "Shared doc" in result.content
@@ -205,9 +201,7 @@ def test_search_handbook_accepts_single_string():
     mock_collection.query.return_value = {"documents": [["Some doc"]]}
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
-
-    with patch("tools.search_handbook.extract_keywords", return_value=[]):
-        result = tool.execute(queries="single query string")
+    result = tool.execute(queries="single query string")
 
     assert result.success is True
     assert "Some doc" in result.content
@@ -223,9 +217,7 @@ def test_search_handbook_no_results():
     mock_collection.query.return_value = {"documents": [[]]}
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
-
-    with patch("tools.search_handbook.extract_keywords", return_value=[]):
-        result = tool.execute(queries=["nonexistent topic"])
+    result = tool.execute(queries=["nonexistent topic"])
 
     assert result.success is False
     assert "No results found" in result.content

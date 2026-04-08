@@ -36,19 +36,21 @@ class SearchHandbookTool(Tool):
         self._provider = provider
         self._collection = collection
 
-    def _search(self, queries: list[str], n_results: int, where_filter: dict | None) -> list[str]:
+    def _search(self, queries: list[str], n_results: int, where_filter: dict | None = None) -> list[str]:
         """Search for each query, return deduplicated docs preserving order."""
         seen: set[str] = set()
         docs: list[str] = []
         for q in queries:
             embedding = self._provider.embed(q, "search_query")
             try:
-                results = self._collection.query(
-                    query_embeddings=[embedding],
-                    n_results=n_results,
-                    where=where_filter,
-                    include=["documents"],
-                )
+                params = {
+                    "query_embeddings": [embedding],
+                    "n_results": n_results,
+                    "include": ["documents"],
+                }
+                if where_filter:
+                    params["where"] = where_filter
+                results = self._collection.query(**params)
                 for doc in results.get("documents", [[]])[0]:
                     if doc not in seen:
                         seen.add(doc)
@@ -68,24 +70,20 @@ class SearchHandbookTool(Tool):
         if not queries:
             return ToolResult(content="Error: queries is required", success=False)
 
-        # Collect keywords from all queries for metadata filtering
-        all_keywords: list[str] = []
-        for q in queries:
-            all_keywords.extend(extract_keywords(q, use_fallback=True, include_verb=True))
-        all_keywords = list(set(all_keywords))
+        # Primary: pure vector search
+        docs = self._search(queries, n_results)
 
-        where_filter = None
-        if all_keywords:
-            or_conditions = [{f"tag_{kw}": {"$eq": True}} for kw in all_keywords]
-            where_filter = {"$or": or_conditions} if len(or_conditions) > 1 else or_conditions[0]
+        # Last resort: keyword filter (may surface tagged docs that vector search missed)
+        if not docs:
+            all_keywords: list[str] = []
+            for q in queries:
+                all_keywords.extend(extract_keywords(q, use_fallback=True, include_verb=True))
+            all_keywords = list(set(all_keywords))
 
-        docs = self._search(queries, n_results, where_filter)
-        used_fallback = False
-
-        # Fall back to pure vector search if keyword filter returned nothing
-        if not docs and where_filter:
-            docs = self._search(queries, n_results, None)
-            used_fallback = True
+            if all_keywords:
+                or_conditions = [{f"tag_{kw}": {"$eq": True}} for kw in all_keywords]
+                where_filter = {"$or": or_conditions} if len(or_conditions) > 1 else or_conditions[0]
+                docs = self._search(queries, n_results, where_filter)
 
         if not docs:
             return ToolResult(
@@ -107,9 +105,6 @@ class SearchHandbookTool(Tool):
 
         context = "\n\n".join(parts)
         result_count = f"({len(parts)} of {len(docs)} results shown)"
-
-        if used_fallback:
-            result_count += " [broad search — keyword filter matched nothing]"
 
         return ToolResult(
             content=f"{result_count}\n\n{context}{GROUNDING_REMINDER}",
