@@ -25,13 +25,13 @@ interface Message {
 
 const sampleQuestions = [
   {
-    "question": "What are the maximum number of unexcused absences before getting dropped from a course?"
+    "question": "How many tardies count as absent?"
   },
   {
-    "question": "How many tardies equal one absence?"
+    "question": "Who is Mother Ignacia?"
   },
   {
-    "question": "What is the procedure for getting permission to miss a class for extra-curricular activities?"
+    "question": "What scholarships are available?"
   }
 ]
 
