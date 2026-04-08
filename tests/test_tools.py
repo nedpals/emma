@@ -164,12 +164,53 @@ def test_search_handbook_returns_results_with_grounding_reminder():
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
 
     with patch("tools.search_handbook.extract_keywords", return_value=["attendance"]):
-        result = tool.execute(query="attendance policy")
+        result = tool.execute(queries=["attendance policy"])
 
     assert result.success is True
     assert "Doc about attendance policy" in result.content
     assert "Answer using ONLY the information above" in result.content
-    mock_provider.embed.assert_called_once_with("attendance policy", "search_query")
+
+
+def test_search_handbook_multiple_queries_deduplicates():
+    from tools.search_handbook import SearchHandbookTool
+
+    mock_provider = MagicMock()
+    mock_provider.embed.return_value = [0.1, 0.2, 0.3]
+
+    mock_collection = MagicMock()
+    mock_collection.query.side_effect = [
+        {"documents": [["Shared doc", "Doc A"]]},
+        {"documents": [["Shared doc", "Doc B"]]},
+    ]
+
+    tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
+
+    with patch("tools.search_handbook.extract_keywords", return_value=[]):
+        result = tool.execute(queries=["query one", "query two"])
+
+    assert result.success is True
+    assert "Shared doc" in result.content
+    assert "Doc A" in result.content
+    assert "Doc B" in result.content
+    assert result.content.count("Shared doc") == 1
+
+
+def test_search_handbook_accepts_single_string():
+    from tools.search_handbook import SearchHandbookTool
+
+    mock_provider = MagicMock()
+    mock_provider.embed.return_value = [0.1, 0.2, 0.3]
+
+    mock_collection = MagicMock()
+    mock_collection.query.return_value = {"documents": [["Some doc"]]}
+
+    tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
+
+    with patch("tools.search_handbook.extract_keywords", return_value=[]):
+        result = tool.execute(queries="single query string")
+
+    assert result.success is True
+    assert "Some doc" in result.content
 
 
 def test_search_handbook_no_results():
@@ -184,7 +225,7 @@ def test_search_handbook_no_results():
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
 
     with patch("tools.search_handbook.extract_keywords", return_value=[]):
-        result = tool.execute(query="nonexistent topic")
+        result = tool.execute(queries=["nonexistent topic"])
 
     assert result.success is False
     assert "No results found" in result.content
@@ -195,4 +236,4 @@ def test_search_handbook_tool_metadata():
     from tools.search_handbook import SearchHandbookTool
     tool = SearchHandbookTool(provider=MagicMock(), collection=MagicMock())
     assert tool.name == "search_handbook"
-    assert "query" in tool.parameters["properties"]
+    assert "queries" in tool.parameters["properties"]
