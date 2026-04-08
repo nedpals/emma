@@ -47,6 +47,7 @@ class LMStudioProvider(LLMProvider):
         messages: list[dict],
         tools: list[ToolDefinition],
         temperature: float = 0.7,
+        tool_choice: str = "auto",
     ) -> LLMResponse:
         openai_tools = [
             {
@@ -64,7 +65,7 @@ class LMStudioProvider(LLMProvider):
             model=self._llm_model,
             messages=messages,
             tools=openai_tools,
-            tool_choice="auto",
+            tool_choice=tool_choice,
             temperature=temperature,
         )
 

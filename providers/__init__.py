@@ -44,6 +44,7 @@ class LLMProvider(ABC):
         messages: list[dict],
         tools: list[ToolDefinition],
         temperature: float = 0.7,
+        tool_choice: str = "auto",
     ) -> LLMResponse:
         ...
 

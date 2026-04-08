@@ -66,11 +66,14 @@ class Agent:
         iterations = 0
 
         while iterations < self.max_iterations:
+            # Force tool use on first iteration so the model always searches
+            choice = "required" if iterations == 0 else "auto"
             try:
                 response: LLMResponse = await asyncio.to_thread(
                     self.provider.generate_with_tools,
                     messages=messages,
                     tools=tool_defs,
+                    tool_choice=choice,
                 )
             except Exception as e:
                 yield ErrorEvent(type="error", message=str(e))

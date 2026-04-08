@@ -20,8 +20,8 @@ class SearchHandbookTool(Tool):
             },
             "n_results": {
                 "type": "integer",
-                "description": "Number of results to retrieve per search (default 10)",
-                "default": 10,
+                "description": "Number of results to retrieve per search (default 5)",
+                "default": 5,
             },
         },
         "required": ["query"],
@@ -31,17 +31,28 @@ class SearchHandbookTool(Tool):
         self._provider = provider
         self._collection = collection
 
+    def _query(self, embedding: list[float], n_results: int, where_filter: dict | None) -> list[str]:
+        try:
+            results = self._collection.query(
+                query_embeddings=[embedding],
+                n_results=n_results,
+                where=where_filter,
+                include=["documents"],
+            )
+            return results.get("documents", [[]])[0]
+        except Exception:
+            return []
+
     def execute(self, **kwargs) -> ToolResult:
         query = kwargs.get("query", "")
-        n_results = kwargs.get("n_results", 10)
+        n_results = kwargs.get("n_results", 5)
 
         if not query:
             return ToolResult(content="Error: query is required", success=False)
 
-        # 1. Embed the query
         query_embedding = self._provider.embed(query, "search_query")
 
-        # 2. Extract keywords for metadata filtering
+        # Try with keyword filter first for precision
         input_keywords = extract_keywords(query, use_fallback=True, include_verb=True)
 
         where_filter = None
@@ -49,17 +60,11 @@ class SearchHandbookTool(Tool):
             or_conditions = [{f"tag_{kw}": {"$eq": True}} for kw in input_keywords]
             where_filter = {"$or": or_conditions} if len(or_conditions) > 1 else or_conditions[0]
 
-        # 3. Query vector store
-        try:
-            results = self._collection.query(
-                query_embeddings=[query_embedding],
-                n_results=n_results,
-                where=where_filter,
-                include=["documents"],
-            )
-            docs = results.get("documents", [[]])[0]
-        except Exception:
-            docs = []
+        docs = self._query(query_embedding, n_results, where_filter)
+
+        # Fall back to pure vector search if keyword filter returned nothing
+        if not docs and where_filter:
+            docs = self._query(query_embedding, n_results, None)
 
         if not docs:
             return ToolResult(
