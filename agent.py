@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import AsyncGenerator
 from typing import Any, TypedDict, Union
 
@@ -101,7 +102,7 @@ class Agent:
                     "tool_calls": [{
                         "id": tc.id,
                         "type": "function",
-                        "function": {"name": tc.name, "arguments": str(tc.arguments)},
+                        "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
                     }],
                 })
                 messages.append({
