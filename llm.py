@@ -8,8 +8,8 @@ from models import Message
 
 # Derived from the LM Studio server endpoint.
 client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
-llm_model = "gemma-3-4b-it-qat"
-vlm_model = "gemma-3-12b-it-qat"
+llm_model = "gemma-4-E4B-it"
+vlm_model = "gemma-4-E4B-it"
 embedding_model = "text-embedding-nomic-embed-text-v1.5"
 
 def generate_response(prompt: str | list[dict] | list[Message], temperature: float = 0.7, max_tokens: int = -1) -> str:
