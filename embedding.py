@@ -10,51 +10,86 @@ from extractor import extract_content
 from vector_store import load_vector_store
 from nlp import extract_keywords, nlp
 
+MAX_CHUNK_CHARS = 1200
+
+
+def split_chunk(text: str) -> list[str]:
+    """Split text into pieces at paragraph boundaries, each under MAX_CHUNK_CHARS."""
+    paragraphs = text.split("\n\n")
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    for para in paragraphs:
+        para_len = len(para)
+        # If adding this paragraph would exceed the limit, flush current group
+        if current and current_len + para_len + 2 > MAX_CHUNK_CHARS:  # +2 for \n\n
+            chunks.append("\n\n".join(current))
+            current = []
+            current_len = 0
+
+        current.append(para)
+        current_len += para_len + 2  # +2 for the \n\n separator
+
+    if current:
+        chunks.append("\n\n".join(current))
+
+    return chunks
+
+
 def embed_documents(docs: Iterable[Tuple[int, str, str]], max_docs_per_request: int = 2, extra_tags: list[str] = None):
     vector_store = load_vector_store()
+    doc_id = 0
 
     for i, doc in enumerate(docs):
-        while True:
-            try:
-                print(f"Embedding split {i+1}")
-                
-                page_number, context_meta, content = doc
-                content_keywords = extract_keywords(content)
+        page_number, context_meta, content = doc
 
-                # Additional: extract keywords from context and
-                context_keywords = extract_keywords(context_meta)
-                content_keywords = list(set(content_keywords + context_keywords))
+        # Prepend context to content for better embeddings
+        enriched_content = f"{context_meta}\n\n{content}" if context_meta else content
 
-                # Add extra tags if provided
-                if extra_tags:
-                    content_keywords.extend(extra_tags)
+        # Split oversized chunks
+        chunks = split_chunk(enriched_content)
 
-                content_keywords = list(set(content_keywords))  # Remove duplicates
+        for chunk in chunks:
+            while True:
+                try:
+                    print(f"Embedding doc {doc_id + 1} (from segment {i + 1}, {len(chunk)} chars)")
 
-                metadata = {
-                    "page_number": page_number,
-                    "context": context_meta,
-                    # Add keyword tags
-                    **{f"tag_{keyword}": True for keyword in content_keywords}
-                }
-                print(f"  - Extracted keywords: {content_keywords[:10]}...")
+                    content_keywords = extract_keywords(chunk)
+                    context_keywords = extract_keywords(context_meta)
+                    all_keywords = list(set(content_keywords + context_keywords))
 
-                embedding = provider.embed(content, 'search_document')
-                vector_store.add(
-                    embeddings=[embedding],
-                    documents=[content],
-                    metadatas=[metadata],
-                    ids=[f"doc_{i}"]
-                )
+                    if extra_tags:
+                        all_keywords.extend(extra_tags)
+                    all_keywords = list(set(all_keywords))
 
-                if i % max_docs_per_request == 0:
-                    time.sleep(1)
+                    metadata = {
+                        "page_number": page_number,
+                        "context": context_meta,
+                        **{f"tag_{keyword}": True for keyword in all_keywords}
+                    }
 
-                break
-            except (KeyError, ConnectionError):
-                print("Error occurred, retrying in 5 seconds")
-                time.sleep(5)
-                continue
+                    embedding = provider.embed(chunk, 'search_document')
+                    vector_store.add(
+                        embeddings=[embedding],
+                        documents=[chunk],
+                        metadatas=[metadata],
+                        ids=[f"doc_{doc_id}"]
+                    )
+
+                    doc_id += 1
+
+                    if doc_id % max_docs_per_request == 0:
+                        time.sleep(1)
+
+                    break
+                except (KeyError, ConnectionError):
+                    print("Error occurred, retrying in 5 seconds")
+                    time.sleep(5)
+                    continue
+
+    print(f"Embedded {doc_id} documents from {i + 1} segments.")
+
 
 if __name__ == "__main__":
     if nlp is None:
@@ -62,7 +97,7 @@ if __name__ == "__main__":
     else:
         max_docs_per_request = int(os.environ.get("MAX_EMBED_COUNT", "2"))
         print("Extracting content...")
-        docs_iterable = extract_content() # Assuming this returns an iterable/generator
+        docs_iterable = extract_content()
 
         print("Starting embedding process...")
         embed_documents(docs_iterable, max_docs_per_request, extra_tags=["uic", "school", "university", "university of immaculate conception"])
