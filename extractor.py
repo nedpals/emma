@@ -6,7 +6,7 @@ import json
 from pydantic import BaseModel
 from pdf2image import convert_from_path
 
-from llm import get_vision_response
+from llm import provider
 
 class PageSegmentSchema(BaseModel):
     text_segment: str
@@ -122,7 +122,7 @@ def extract_content(pdf_path="./handbook.pdf"):
                 continue
 
         # Generate the response using the LLM
-        response = get_vision_response(image_path, ocr_prompt, response_format=PageSegmentsSchema, temperature=0.45)
+        response = provider.vision(image_path, ocr_prompt, response_format=PageSegmentsSchema, temperature=0.45)
         
         segments = []
         if isinstance(response, PageSegmentsSchema):

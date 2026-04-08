@@ -10,15 +10,17 @@
 - **Campus Life Information** - Learn about events, facilities, and resources available on campus
 - **Student Services Support** - Navigate administrative processes, support services, and more
 - **Natural Language Interface** - Ask questions in everyday language, just like chatting with a friend
+- **Smart Search** - Emma automatically searches the handbook, looks up specific pages, and performs calculations to find the best answer
+- **Real-Time Status** - See what Emma is doing as she works on your question
 
 ## 🛠️ Technology
 
 Emma is built using:
 - [Google Gemma 4](https://ai.google.dev/gemma) - For natural language understanding and generation
 - [LM Studio](https://lmstudio.ai/) - For local model deployment and management
-- [Tailwind CSS](https://tailwindcss.com/) - For responsive and elegant UI design
-- [Vite](https://vitejs.dev/) - For lightning-fast frontend development
 - [ChromaDB](https://www.trychroma.com/) - For vector database and semantic search capabilities
+- [FastAPI](https://fastapi.tiangolo.com/) - Backend server
+- [React](https://react.dev/) + [Vite](https://vitejs.dev/) + [Tailwind CSS](https://tailwindcss.com/) - Frontend
 
 ## 🚀 Installation & Setup
 

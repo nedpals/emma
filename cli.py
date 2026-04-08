@@ -1,22 +1,36 @@
-from models import UserMessage, AIMessage
-from prompt import RetrievalChain
-from vector_store import load_vector_store
+import asyncio
+import logging
+import os
 
-retrieval_chain = RetrievalChain(load_vector_store(), history_aware=False)
+from agent_setup import create_agent
+
+log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, log_level, logging.INFO), format="  %(name)s: %(message)s")
+
+agent = create_agent()
 chat_history = []
 
-while True:
-    question = input("> ")
-    if question == "quit":
-        break
 
-    result = retrieval_chain.invoke({
-        "chat_history": chat_history,
-        "input": question
-    })
+async def main():
+    while True:
+        question = input("> ")
+        if question == "quit":
+            break
 
-    answer = result['answer']
-    chat_history.append(UserMessage(question))
-    chat_history.append(AIMessage(answer))
+        answer = ""
+        async for event in agent.run(question, chat_history):
+            if event["type"] == "tool_start":
+                print(f"  [Using {event['tool']}...]")
+            elif event["type"] == "answer":
+                answer = event["answer"]
+            elif event["type"] == "error":
+                print(f"  Error: {event['message']}")
 
-    print(answer)
+        if answer:
+            chat_history.append({"role": "user", "content": question})
+            chat_history.append({"role": "assistant", "content": answer})
+            print(answer)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
