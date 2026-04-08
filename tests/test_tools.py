@@ -186,8 +186,9 @@ def test_search_handbook_no_results():
     with patch("tools.search_handbook.extract_keywords", return_value=[]):
         result = tool.execute(query="nonexistent topic")
 
-    assert result.success is True
-    assert "No relevant information found" in result.content
+    assert result.success is False
+    assert "No results found" in result.content
+    assert "Try rephrasing" in result.content
 
 
 def test_search_handbook_tool_metadata():

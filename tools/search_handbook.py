@@ -6,6 +6,7 @@ from tools import Tool, ToolResult
 
 
 GROUNDING_REMINDER = "\n\n---\nAnswer using ONLY the information above. If the answer is not found above, say so."
+MAX_CONTEXT_CHARS = 3000
 
 
 class SearchHandbookTool(Tool):
@@ -61,16 +62,38 @@ class SearchHandbookTool(Tool):
             where_filter = {"$or": or_conditions} if len(or_conditions) > 1 else or_conditions[0]
 
         docs = self._query(query_embedding, n_results, where_filter)
+        used_fallback = False
 
         # Fall back to pure vector search if keyword filter returned nothing
         if not docs and where_filter:
             docs = self._query(query_embedding, n_results, None)
+            used_fallback = True
 
         if not docs:
             return ToolResult(
-                content="No relevant information found in the handbook." + GROUNDING_REMINDER,
-                success=True,
+                content=(
+                    f"No results found for query '{query}'. "
+                    "Try rephrasing with different keywords or a broader search term."
+                ),
+                success=False,
             )
 
-        context = "\n\n".join(docs)
-        return ToolResult(content=context + GROUNDING_REMINDER, success=True)
+        # Cap context size to avoid overflowing the model's context window
+        parts = []
+        total = 0
+        for doc in docs:
+            if total + len(doc) > MAX_CONTEXT_CHARS:
+                break
+            parts.append(doc)
+            total += len(doc)
+
+        context = "\n\n".join(parts)
+        result_count = f"({len(parts)} of {len(docs)} results shown)"
+
+        if used_fallback:
+            result_count += " [broad search — keyword filter matched nothing]"
+
+        return ToolResult(
+            content=f"{result_count}\n\n{context}{GROUNDING_REMINDER}",
+            success=True,
+        )
