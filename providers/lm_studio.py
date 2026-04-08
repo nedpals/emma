@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Generator
 from typing import Any, BinaryIO, Literal
 
 import lmstudio as lms
@@ -83,6 +84,18 @@ class LMStudioProvider(LLMProvider):
             return ToolCallResponse(calls=calls)
 
         return TextResponse(content=message.content.strip() if message.content else "")
+
+    def generate_stream(self, messages: list[dict], temperature: float = 0.7) -> Generator[str, None, None]:
+        stream = self._client.chat.completions.create(
+            model=self._llm_model,
+            messages=messages,
+            temperature=temperature,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
 
     def embed(self, text: str, purpose: Literal["search_query", "search_document"]) -> list[float]:
         response = self._client.embeddings.create(

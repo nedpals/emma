@@ -3,7 +3,8 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 type ChainEvent =
     | { type: "tool_start"; tool: string; arguments: Record<string, unknown> }
     | { type: "tool_end"; tool: string; success: boolean }
-    | { type: "answer"; answer: string }
+    | { type: "answer_chunk"; chunk: string }
+    | { type: "answer_done" }
     | { type: "error"; message: string };
 
 type InvokeCallbacks = {
@@ -40,8 +41,8 @@ const chain = (() => {
                 }
                 callbacks?.onEvent?.(event);
 
-                if (event.type === "answer") {
-                    answer = event.answer;
+                if (event.type === "answer_chunk") {
+                    answer += event.chunk;
                 } else if (event.type === "error") {
                     error = new Error(event.message);
                 }

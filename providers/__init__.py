@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any, BinaryIO, Literal
 
@@ -46,6 +47,10 @@ class LLMProvider(ABC):
         temperature: float = 0.7,
         tool_choice: str = "auto",
     ) -> LLMResponse:
+        ...
+
+    @abstractmethod
+    def generate_stream(self, messages: list[dict], temperature: float = 0.7) -> Generator[str, None, None]:
         ...
 
     @abstractmethod

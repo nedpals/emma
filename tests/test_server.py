@@ -2,18 +2,13 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
 
-async def _mock_agent_run(events):
-    """Create an async generator that yields the given events."""
-    for event in events:
-        yield event
-
-
 @pytest.fixture
 def mock_agent():
     agent = MagicMock()
 
     async def default_run(input, chat_history):
-        yield {"type": "answer", "answer": "Test answer"}
+        yield {"type": "answer_chunk", "chunk": "Test answer"}
+        yield {"type": "answer_done"}
 
     agent.run = default_run
     return agent
@@ -44,9 +39,11 @@ def test_invoke_returns_sse_stream(client, mock_agent):
     assert "text/event-stream" in response.headers["content-type"]
 
 
-def test_invoke_stream_contains_answer_event(client, mock_agent):
+def test_invoke_stream_contains_answer_chunks(client, mock_agent):
     async def fake_run(input, chat_history):
-        yield {"type": "answer", "answer": "The answer is 42"}
+        yield {"type": "answer_chunk", "chunk": "The answer"}
+        yield {"type": "answer_chunk", "chunk": " is 42"}
+        yield {"type": "answer_done"}
 
     mock_agent.run = fake_run
 
@@ -57,15 +54,17 @@ def test_invoke_stream_contains_answer_event(client, mock_agent):
     })
 
     body = response.text
-    assert "answer" in body
-    assert "The answer is 42" in body
+    assert "answer_chunk" in body
+    assert "The answer" in body
+    assert "answer_done" in body
 
 
 def test_invoke_stream_contains_tool_events(client, mock_agent):
     async def fake_run(input, chat_history):
         yield {"type": "tool_start", "tool": "search_handbook", "arguments": {"query": "test"}}
         yield {"type": "tool_end", "tool": "search_handbook", "success": True}
-        yield {"type": "answer", "answer": "Found it"}
+        yield {"type": "answer_chunk", "chunk": "Found it"}
+        yield {"type": "answer_done"}
 
     mock_agent.run = fake_run
 
@@ -78,4 +77,4 @@ def test_invoke_stream_contains_tool_events(client, mock_agent):
     body = response.text
     assert "tool_start" in body
     assert "tool_end" in body
-    assert "answer" in body
+    assert "answer_chunk" in body

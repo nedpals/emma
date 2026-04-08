@@ -25,9 +25,13 @@ class ToolEndEvent(TypedDict):
     success: bool
 
 
-class AnswerEvent(TypedDict):
-    type: str  # "answer"
-    answer: str
+class AnswerChunkEvent(TypedDict):
+    type: str  # "answer_chunk"
+    chunk: str
+
+
+class AnswerDoneEvent(TypedDict):
+    type: str  # "answer_done"
 
 
 class ErrorEvent(TypedDict):
@@ -35,7 +39,7 @@ class ErrorEvent(TypedDict):
     message: str
 
 
-AgentEvent = Union[ToolStartEvent, ToolEndEvent, AnswerEvent, ErrorEvent]
+AgentEvent = Union[ToolStartEvent, ToolEndEvent, AnswerChunkEvent, AnswerDoneEvent, ErrorEvent]
 
 
 class Agent:
@@ -50,6 +54,19 @@ class Agent:
         self.registry = registry
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
+
+    async def _stream_answer(self, messages: list[dict]) -> AsyncGenerator[AgentEvent, None]:
+        """Stream the final text response token by token."""
+        try:
+            gen = self.provider.generate_stream(messages)
+            while True:
+                chunk = await asyncio.to_thread(next, gen, None)
+                if chunk is None:
+                    break
+                yield AnswerChunkEvent(type="answer_chunk", chunk=chunk)
+            yield AnswerDoneEvent(type="answer_done")
+        except Exception as e:
+            yield ErrorEvent(type="error", message=str(e))
 
     async def run(
         self,
@@ -80,7 +97,9 @@ class Agent:
                 return
 
             if isinstance(response, TextResponse):
-                yield AnswerEvent(type="answer", answer=response.content)
+                # Re-run as streaming for the final answer
+                async for event in self._stream_answer(messages):
+                    yield event
                 return
 
             for tc in response.calls:
@@ -121,8 +140,5 @@ class Agent:
             "role": "user",
             "content": "Please respond now with the information you have.",
         })
-        try:
-            final = await asyncio.to_thread(self.provider.generate, messages)
-            yield AnswerEvent(type="answer", answer=final)
-        except Exception as e:
-            yield ErrorEvent(type="error", message=str(e))
+        async for event in self._stream_answer(messages):
+            yield event

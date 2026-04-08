@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import sys
 
 from agent_setup import create_agent
 
@@ -21,15 +22,18 @@ async def main():
         async for event in agent.run(question, chat_history):
             if event["type"] == "tool_start":
                 print(f"  [Using {event['tool']}...]")
-            elif event["type"] == "answer":
-                answer = event["answer"]
+            elif event["type"] == "answer_chunk":
+                sys.stdout.write(event["chunk"])
+                sys.stdout.flush()
+                answer += event["chunk"]
+            elif event["type"] == "answer_done":
+                print()  # newline after streaming
             elif event["type"] == "error":
                 print(f"  Error: {event['message']}")
 
         if answer:
             chat_history.append({"role": "user", "content": question})
             chat_history.append({"role": "assistant", "content": answer})
-            print(answer)
 
 
 if __name__ == "__main__":

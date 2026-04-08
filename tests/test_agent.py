@@ -4,6 +4,14 @@ import pytest
 from providers import TextResponse, ToolCall, ToolCallResponse
 
 
+def _mock_stream(text):
+    """Create a generator that yields text one word at a time."""
+    def stream(*args, **kwargs):
+        for word in text.split(" "):
+            yield word + " "
+    return stream
+
+
 def _make_agent(provider=None, max_iterations=5):
     from agent import Agent
     from tools import Tool, ToolRegistry, ToolResult
@@ -22,7 +30,7 @@ def _make_agent(provider=None, max_iterations=5):
     if provider is None:
         provider = MagicMock()
         provider.generate_with_tools.return_value = TextResponse(content="Hello!")
-        provider.generate.return_value = "Forced response"
+        provider.generate_stream.side_effect = _mock_stream("Hello!")
 
     return Agent(
         provider=provider,
@@ -33,7 +41,6 @@ def _make_agent(provider=None, max_iterations=5):
 
 
 async def _collect_events(agent, input, chat_history=None):
-    """Helper to collect all events from the async generator."""
     events = []
     async for event in agent.run(input, chat_history=chat_history or []):
         events.append(event)
@@ -41,28 +48,30 @@ async def _collect_events(agent, input, chat_history=None):
 
 
 def _get_answer(events):
-    """Extract the answer from collected events."""
-    for event in events:
-        if event["type"] == "answer":
-            return event["answer"]
-    return None
+    """Reconstruct the answer from answer_chunk events."""
+    chunks = [e["chunk"] for e in events if e["type"] == "answer_chunk"]
+    return "".join(chunks).strip() if chunks else None
 
 
 @pytest.mark.asyncio
-async def test_agent_returns_text_response_directly():
+async def test_agent_streams_text_response():
     agent = _make_agent()
     events = await _collect_events(agent, "hi")
+
+    event_types = [e["type"] for e in events]
+    assert "answer_chunk" in event_types
+    assert "answer_done" in event_types
     assert _get_answer(events) == "Hello!"
-    assert len(events) == 1
 
 
 @pytest.mark.asyncio
-async def test_agent_executes_tool_and_returns_final_response():
+async def test_agent_executes_tool_then_streams_answer():
     provider = MagicMock()
     provider.generate_with_tools.side_effect = [
         ToolCallResponse(calls=[ToolCall(id="1", name="echo", arguments={"text": "world"})]),
         TextResponse(content="The echo said: world"),
     ]
+    provider.generate_stream.side_effect = _mock_stream("The echo said: world")
 
     agent = _make_agent(provider=provider)
     events = await _collect_events(agent, "echo world")
@@ -72,12 +81,13 @@ async def test_agent_executes_tool_and_returns_final_response():
 
 
 @pytest.mark.asyncio
-async def test_agent_yields_tool_events():
+async def test_agent_yields_tool_and_answer_events():
     provider = MagicMock()
     provider.generate_with_tools.side_effect = [
         ToolCallResponse(calls=[ToolCall(id="1", name="echo", arguments={"text": "test"})]),
         TextResponse(content="done"),
     ]
+    provider.generate_stream.side_effect = _mock_stream("done")
 
     agent = _make_agent(provider=provider)
     events = await _collect_events(agent, "test")
@@ -85,7 +95,8 @@ async def test_agent_yields_tool_events():
     event_types = [e["type"] for e in events]
     assert "tool_start" in event_types
     assert "tool_end" in event_types
-    assert "answer" in event_types
+    assert "answer_chunk" in event_types
+    assert "answer_done" in event_types
 
 
 @pytest.mark.asyncio
@@ -93,13 +104,14 @@ async def test_agent_handles_unknown_tool():
     provider = MagicMock()
     provider.generate_with_tools.side_effect = [
         ToolCallResponse(calls=[ToolCall(id="1", name="nonexistent", arguments={})]),
-        TextResponse(content="Sorry, I couldn't find that tool"),
+        TextResponse(content="Sorry"),
     ]
+    provider.generate_stream.side_effect = _mock_stream("Sorry")
 
     agent = _make_agent(provider=provider)
     events = await _collect_events(agent, "use nonexistent")
 
-    assert _get_answer(events) == "Sorry, I couldn't find that tool"
+    assert _get_answer(events) == "Sorry"
 
 
 @pytest.mark.asyncio
@@ -108,14 +120,13 @@ async def test_agent_respects_max_iterations():
     provider.generate_with_tools.return_value = ToolCallResponse(
         calls=[ToolCall(id="1", name="echo", arguments={"text": "loop"})]
     )
-    provider.generate.return_value = "Forced final response"
+    provider.generate_stream.side_effect = _mock_stream("Forced final response")
 
     agent = _make_agent(provider=provider, max_iterations=2)
     events = await _collect_events(agent, "loop forever")
 
     assert _get_answer(events) == "Forced final response"
     assert provider.generate_with_tools.call_count == 2
-    assert provider.generate.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -134,8 +145,9 @@ async def test_agent_handles_tool_execution_error():
     provider = MagicMock()
     provider.generate_with_tools.side_effect = [
         ToolCallResponse(calls=[ToolCall(id="1", name="fail", arguments={})]),
-        TextResponse(content="Tool failed, here's my best answer"),
+        TextResponse(content="Tool failed"),
     ]
+    provider.generate_stream.side_effect = _mock_stream("Tool failed")
 
     registry = ToolRegistry()
     registry.register(FailingTool())
@@ -148,13 +160,14 @@ async def test_agent_handles_tool_execution_error():
     )
 
     events = await _collect_events(agent, "do something")
-    assert _get_answer(events) == "Tool failed, here's my best answer"
+    assert _get_answer(events) == "Tool failed"
 
 
 @pytest.mark.asyncio
 async def test_agent_includes_system_prompt_in_messages():
     provider = MagicMock()
     provider.generate_with_tools.return_value = TextResponse(content="hi")
+    provider.generate_stream.side_effect = _mock_stream("hi")
 
     agent = _make_agent(provider=provider)
     await _collect_events(agent, "hello")

@@ -19,7 +19,7 @@ type MessageAction = {
 interface Message {
   role: 'user' | 'assistant'
   content: string
-  status?: 'loading' | 'error'
+  status?: 'loading' | 'streaming' | 'error'
   statusText?: string
   actions?: MessageAction[]
 }
@@ -95,10 +95,10 @@ const Logo = ({ showIcon = false, ...props }: React.SVGProps<SVGSVGElement> & { 
   </svg>
 );
 
-function AssistantMessage({ content }: { content: string }) {
+function AssistantMessage({ content, isStreaming }: { content: string, isStreaming?: boolean }) {
   return (
     <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-p:my-1 prose-ul:my-2 prose-li:my-0.5 text-primary-900">
-      <Streamdown animated>{content}</Streamdown>
+      <Streamdown mode={isStreaming ? "streaming" : "static"} animated>{content}</Streamdown>
     </div>
   );
 }
@@ -144,7 +144,7 @@ function MessageBubble({ role, content, status, statusText, actions, onActionCli
             </div>
           ) : (
             role === 'assistant' && status !== 'error' ? (
-              <AssistantMessage content={content} />
+              <AssistantMessage content={content} isStreaming={status === 'streaming'} />
             ) : (
               <div className={cn(
                 "prose prose-sm max-w-none", 
@@ -324,16 +324,36 @@ function App() {
           if (event.type === 'tool_start') {
             const label = toolDisplayNames[event.tool] ?? event.tool;
             updateStatusText(`${label}...`);
+          } else if (event.type === 'answer_chunk') {
+            setMessages(msg => {
+              const last = msg[msg.length - 1];
+              if (last?.role === 'assistant' && (last.status === 'loading' || last.status === 'streaming')) {
+                return [...msg.slice(0, -1), {
+                  ...last,
+                  content: last.content + event.chunk,
+                  status: 'streaming' as const,
+                  statusText: undefined,
+                }];
+              }
+              return msg;
+            });
+            scrollToBottom();
+          } else if (event.type === 'answer_done') {
+            setMessages(msg => {
+              const last = msg[msg.length - 1];
+              if (last?.role === 'assistant' && last.status === 'streaming') {
+                return [...msg.slice(0, -1), { ...last, status: undefined }];
+              }
+              return msg;
+            });
           }
         }
       });
-      if (result.answer) {
-        storeBotMessage(result.answer);
-        return result.answer;
-      } else {
+      if (!result.answer) {
         storeBotMessage('Sorry, I encountered an error. Please try again.', 'error');
         return null;
       }
+      return result.answer;
     } catch (err) {
       console.error(err);
       storeBotMessage('Sorry, I encountered an error. Please try again.', 'error');
