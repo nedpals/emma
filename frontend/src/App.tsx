@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import chain from './chain';
+import { Streamdown } from 'streamdown';
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -94,81 +95,10 @@ const Logo = ({ showIcon = false, ...props }: React.SVGProps<SVGSVGElement> & { 
   </svg>
 );
 
-function AnimatedTextRenderer({ 
-  text, 
-  className,
-  status 
-}: { 
-  text: string, 
-  className?: string,
-  status?: Message['status']
-}) {
-  const [displayedText, setDisplayedText] = useState("");
-  const [isComplete, setIsComplete] = useState(false);
-  const textRef = useRef(text);
-  
-  useEffect(() => {
-    if (status === 'error') {
-      // For error messages, show them immediately
-      setDisplayedText(text);
-      setIsComplete(true);
-      return;
-    }
-    
-    textRef.current = text;
-    setIsComplete(false);
-    
-    // Split and process Markdown
-    if (text) {
-      setDisplayedText(""); // Reset before animation starts
-      
-      // Use a small delay before starting animation
-      const initialDelay = setTimeout(() => {
-        let position = 0;
-        const increment = 1; // Characters per tick
-        const speedBase = 5; // Base speed in milliseconds
-        
-        const timer = setInterval(() => {
-          if (position < textRef.current.length) {
-            setDisplayedText(textRef.current.substring(0, position + increment));
-            position += increment;
-          } else {
-            clearInterval(timer);
-            setIsComplete(true);
-          }
-        }, speedBase);
-        
-        return () => clearInterval(timer);
-      }, 100);
-      
-      return () => clearTimeout(initialDelay);
-    }
-  }, [text, status]);
-  
-  if (!text) return null;
-  
+function AssistantMessage({ content }: { content: string }) {
   return (
-    <div className={className}>
-      {isComplete ? (
-        // Once animation is complete, use marked for proper rendering
-        <div
-          className="prose prose-sm max-w-none prose-p:leading-relaxed prose-p:my-1 prose-ul:my-2 prose-li:my-0.5"
-          dangerouslySetInnerHTML={{ __html: marked.parse(text, { breaks: true }) }}
-        />
-      ) : (
-        // During animation, render plaintext with word-by-word animation
-        <div className="prose prose-sm max-w-none prose-p:leading-relaxed">
-          {displayedText.split(' ').map((word, i) => (
-            <span key={i} className="animate-fadeIn" style={{ 
-              animationDelay: `${i * 30}ms`,
-              animationDuration: '200ms',
-              display: 'inline'
-            }}>
-              {word}{' '}
-            </span>
-          ))}
-        </div>
-      )}
+    <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-p:my-1 prose-ul:my-2 prose-li:my-0.5 text-primary-900">
+      <Streamdown animated>{content}</Streamdown>
     </div>
   );
 }
@@ -214,13 +144,7 @@ function MessageBubble({ role, content, status, statusText, actions, onActionCli
             </div>
           ) : (
             role === 'assistant' && status !== 'error' ? (
-              <AnimatedTextRenderer 
-                text={content} 
-                status={status}
-                className={cn(
-                  "text-primary-900",
-                )}
-              />
+              <AssistantMessage content={content} />
             ) : (
               <div className={cn(
                 "prose prose-sm max-w-none", 
@@ -228,7 +152,7 @@ function MessageBubble({ role, content, status, statusText, actions, onActionCli
                 role === 'user' ? 'text-primary-900' : 'text-primary-900',
                 status === 'error' ? 'prose-headings:text-danger-700 prose-a:text-danger-700' : ''
               )}
-              dangerouslySetInnerHTML={{ __html: marked.parse(content, { breaks: true }) }}
+              dangerouslySetInnerHTML={{ __html: marked.parse(content, { breaks: true, async: false }) as string }}
               />
             )
           )}
