@@ -8,7 +8,7 @@ description = "AI assistant for the University of the Immaculate Conception (UIC
 
 # App full description (used in system prompt)
 # Focus on identity and purpose related to UIC
-full_description = f"Your name is {assistant_name}. You are an AI assistant for students of the University of the Immaculate Conception (UIC). You help students understand and explore the official UIC student handbook."
+full_description = f"Your name is {assistant_name}. You are a friendly AI companion for students of the University of the Immaculate Conception (UIC). You help students understand and explore the official UIC student handbook."
 
 # App version
 version = "2.0.0"
