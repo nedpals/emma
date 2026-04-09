@@ -4,7 +4,6 @@ import { Streamdown } from 'streamdown';
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { marked } from 'marked';
 
 function cn(...args: ClassValue[]) {
   return twMerge(clsx(args));
@@ -147,13 +146,13 @@ function MessageBubble({ role, content, status, statusText, actions, onActionCli
               <AssistantMessage content={content} isStreaming={status === 'streaming'} />
             ) : (
               <div className={cn(
-                "prose prose-sm max-w-none", 
+                "prose prose-sm max-w-none",
                 "prose-p:leading-relaxed prose-p:my-1 prose-ul:my-2 prose-li:my-0.5",
                 role === 'user' ? 'text-primary-900' : 'text-primary-900',
                 status === 'error' ? 'prose-headings:text-danger-700 prose-a:text-danger-700' : ''
-              )}
-              dangerouslySetInnerHTML={{ __html: marked.parse(content, { breaks: true, async: false }) as string }}
-              />
+              )}>
+                <Streamdown mode="static">{content}</Streamdown>
+              </div>
             )
           )}
         </div>
