@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Generator
-from dataclasses import dataclass
 from typing import Any, BinaryIO, Literal
 
 from pydantic import BaseModel
@@ -31,28 +30,24 @@ class AIMessage(ChatMessage):
         super().__init__(role="assistant", content=content, **kwargs)
 
 
-@dataclass
-class TextResponse:
+class TextResponse(BaseModel):
     content: str
 
 
-@dataclass
-class ToolCall:
+class ToolCall(BaseModel):
     id: str
     name: str
     arguments: dict[str, Any]
 
 
-@dataclass
-class ToolCallResponse:
+class ToolCallResponse(BaseModel):
     calls: list[ToolCall]
 
 
 LLMResponse = TextResponse | ToolCallResponse
 
 
-@dataclass
-class ToolDefinition:
+class ToolDefinition(BaseModel):
     """OpenAI function-calling schema format."""
     name: str
     description: str

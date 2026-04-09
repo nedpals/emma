@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 from providers import ToolDefinition
 
 
-@dataclass
-class ToolResult:
+class ToolResult(BaseModel):
     content: str
     success: bool
 
