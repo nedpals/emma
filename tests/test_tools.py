@@ -147,7 +147,7 @@ def test_get_page_tool_metadata():
     assert tool.name == "get_page"
 
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 def test_search_handbook_returns_results_with_grounding_reminder():
