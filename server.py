@@ -13,7 +13,7 @@ import uvicorn
 
 import meta
 from agent_setup import create_agent
-from models import Message
+from models import ChatMessage
 
 # App environment
 environment = os.environ.get("ENV", "development")
@@ -48,7 +48,7 @@ app.add_middleware(
 
 class InvokeChainInput(BaseModel):
     input: str
-    chat_history: list[Message] | None = None
+    chat_history: list[ChatMessage] | None = None
     n_results: int = 10
 
 
@@ -76,7 +76,7 @@ async def catch_all(request: Request, full_path: str):
 @app.post("/invoke")
 async def invoke_chain(request: InvokeChainRequest):
     input_text = request.input.input
-    chat_history = [m.model_dump() for m in request.input.chat_history] if request.input.chat_history else []
+    chat_history = list(request.input.chat_history) if request.input.chat_history else []
 
     async def event_generator():
         async for event in agent.run(input_text, chat_history):

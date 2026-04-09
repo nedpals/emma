@@ -1,17 +1,3 @@
-from pydantic import BaseModel
+from providers import ChatMessage, SystemMessage, UserMessage, AIMessage
 
-class Message(BaseModel):
-    role: str
-    content: str
-
-class SystemMessage(Message):
-    def __init__(self, content: str):
-        super().__init__(role="system", content=content)
-
-class UserMessage(Message):
-    def __init__(self, content: str):
-        super().__init__(role="user", content=content)
-
-class AIMessage(Message):
-    def __init__(self, content: str):
-        super().__init__(role="assistant", content=content)
+__all__ = ["ChatMessage", "SystemMessage", "UserMessage", "AIMessage"]

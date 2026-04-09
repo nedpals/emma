@@ -8,6 +8,7 @@ import lmstudio as lms
 from openai import OpenAI
 
 from providers import (
+    ChatMessage,
     LLMProvider,
     LLMResponse,
     TextResponse,
@@ -15,6 +16,10 @@ from providers import (
     ToolCallResponse,
     ToolDefinition,
 )
+
+
+def _to_dicts(messages: list[ChatMessage]) -> list[dict]:
+    return [m.model_dump(exclude_none=True) for m in messages]
 
 
 class LMStudioProvider(LLMProvider):
@@ -31,10 +36,10 @@ class LMStudioProvider(LLMProvider):
         self._vlm_model = vlm_model
         self._embedding_model = embedding_model
 
-    def generate(self, messages: list[dict], temperature: float = 0.7, max_tokens: int = -1) -> str:
+    def generate(self, messages: list[ChatMessage], temperature: float = 0.7, max_tokens: int = -1) -> str:
         params: dict[str, Any] = {
             "model": self._llm_model,
-            "messages": messages,
+            "messages": _to_dicts(messages),
             "temperature": temperature,
         }
         if max_tokens > 0:
@@ -45,7 +50,7 @@ class LMStudioProvider(LLMProvider):
 
     def generate_with_tools(
         self,
-        messages: list[dict],
+        messages: list[ChatMessage],
         tools: list[ToolDefinition],
         temperature: float = 0.7,
         tool_choice: str = "auto",
@@ -64,7 +69,7 @@ class LMStudioProvider(LLMProvider):
 
         response = self._client.chat.completions.create(
             model=self._llm_model,
-            messages=messages,
+            messages=_to_dicts(messages),
             tools=openai_tools,
             tool_choice=tool_choice,
             temperature=temperature,
@@ -85,10 +90,10 @@ class LMStudioProvider(LLMProvider):
 
         return TextResponse(content=message.content.strip() if message.content else "")
 
-    def generate_stream(self, messages: list[dict], temperature: float = 0.7) -> Generator[str, None, None]:
+    def generate_stream(self, messages: list[ChatMessage], temperature: float = 0.7) -> Generator[str, None, None]:
         stream = self._client.chat.completions.create(
             model=self._llm_model,
-            messages=messages,
+            messages=_to_dicts(messages),
             temperature=temperature,
             stream=True,
         )

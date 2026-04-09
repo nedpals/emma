@@ -67,8 +67,9 @@ def test_lm_studio_generate_calls_openai():
     mock_response.choices[0].message.content = "  test response  "
 
     with patch.object(provider._client.chat.completions, "create", return_value=mock_response) as mock_create:
+        from providers import UserMessage
         result = provider.generate(
-            messages=[{"role": "user", "content": "hi"}],
+            messages=[UserMessage("hi")],
             temperature=0.5,
         )
 
@@ -96,8 +97,9 @@ def test_lm_studio_generate_with_tools_returns_text():
     mock_response.choices[0].message.content = "just text"
 
     with patch.object(provider._client.chat.completions, "create", return_value=mock_response):
+        from providers import UserMessage
         result = provider.generate_with_tools(
-            messages=[{"role": "user", "content": "hi"}],
+            messages=[UserMessage("hi")],
             tools=[ToolDefinition(name="test", description="test tool", parameters={"type": "object", "properties": {}})],
         )
 
@@ -127,8 +129,9 @@ def test_lm_studio_generate_with_tools_returns_tool_calls():
     mock_response.choices[0].message.content = None
 
     with patch.object(provider._client.chat.completions, "create", return_value=mock_response):
+        from providers import UserMessage
         result = provider.generate_with_tools(
-            messages=[{"role": "user", "content": "attendance policy"}],
+            messages=[UserMessage("attendance policy")],
             tools=[ToolDefinition(name="search_handbook", description="search", parameters={"type": "object", "properties": {}})],
         )
 

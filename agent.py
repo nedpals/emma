@@ -6,9 +6,12 @@ from collections.abc import AsyncGenerator
 from typing import Any, TypedDict, Union
 
 from providers import (
+    ChatMessage,
     LLMProvider,
     LLMResponse,
+    SystemMessage,
     TextResponse,
+    UserMessage,
 )
 from tools import ToolRegistry
 
@@ -71,12 +74,12 @@ class Agent:
     async def run(
         self,
         input: str,
-        chat_history: list[dict],
+        chat_history: list[ChatMessage],
     ) -> AsyncGenerator[AgentEvent, None]:
-        messages: list[dict] = [
-            {"role": "system", "content": self.system_prompt},
+        messages: list[ChatMessage] = [
+            SystemMessage(self.system_prompt),
             *chat_history,
-            {"role": "user", "content": input},
+            UserMessage(input),
         ]
 
         tool_defs = self.registry.get_tool_definitions()
@@ -118,27 +121,24 @@ class Agent:
                         tool_content = f"Error: {e}"
                         yield ToolEndEvent(type="tool_end", tool=tc.name, success=False)
 
-                messages.append({
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [{
+                messages.append(ChatMessage(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[{
                         "id": tc.id,
                         "type": "function",
                         "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
                     }],
-                })
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": tool_content,
-                })
+                ))
+                messages.append(ChatMessage(
+                    role="tool",
+                    tool_call_id=tc.id,
+                    content=tool_content,
+                ))
 
             iterations += 1
 
         # Soft cap reached
-        messages.append({
-            "role": "user",
-            "content": "Please respond now with the information you have.",
-        })
+        messages.append(UserMessage("Please respond now with the information you have."))
         async for event in self._stream_answer(messages):
             yield event

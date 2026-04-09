@@ -5,6 +5,31 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any, BinaryIO, Literal
 
+from pydantic import BaseModel
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str | None = None
+    tool_calls: list[dict] | None = None
+    tool_call_id: str | None = None
+
+
+
+class SystemMessage(ChatMessage):
+    def __init__(self, content: str, **kwargs: Any):
+        super().__init__(role="system", content=content, **kwargs)
+
+
+class UserMessage(ChatMessage):
+    def __init__(self, content: str, **kwargs: Any):
+        super().__init__(role="user", content=content, **kwargs)
+
+
+class AIMessage(ChatMessage):
+    def __init__(self, content: str, **kwargs: Any):
+        super().__init__(role="assistant", content=content, **kwargs)
+
 
 @dataclass
 class TextResponse:
@@ -36,13 +61,13 @@ class ToolDefinition:
 
 class LLMProvider(ABC):
     @abstractmethod
-    def generate(self, messages: list[dict], temperature: float = 0.7, max_tokens: int = -1) -> str:
+    def generate(self, messages: list[ChatMessage], temperature: float = 0.7, max_tokens: int = -1) -> str:
         ...
 
     @abstractmethod
     def generate_with_tools(
         self,
-        messages: list[dict],
+        messages: list[ChatMessage],
         tools: list[ToolDefinition],
         temperature: float = 0.7,
         tool_choice: str = "auto",
@@ -50,7 +75,7 @@ class LLMProvider(ABC):
         ...
 
     @abstractmethod
-    def generate_stream(self, messages: list[dict], temperature: float = 0.7) -> Generator[str, None, None]:
+    def generate_stream(self, messages: list[ChatMessage], temperature: float = 0.7) -> Generator[str, None, None]:
         ...
 
     @abstractmethod

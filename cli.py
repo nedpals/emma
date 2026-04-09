@@ -4,12 +4,13 @@ import os
 import sys
 
 from agent_setup import create_agent
+from models import UserMessage, AIMessage
 
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, log_level, logging.INFO), format="  %(name)s: %(message)s")
 
 agent = create_agent()
-chat_history = []
+chat_history: list[dict] = []
 
 
 async def main():
@@ -32,8 +33,8 @@ async def main():
                 print(f"  Error: {event['message']}")
 
         if answer:
-            chat_history.append({"role": "user", "content": question})
-            chat_history.append({"role": "assistant", "content": answer})
+            chat_history.append(UserMessage(question))
+            chat_history.append(AIMessage(answer))
 
 
 if __name__ == "__main__":

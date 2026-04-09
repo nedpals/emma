@@ -174,8 +174,8 @@ async def test_agent_includes_system_prompt_in_messages():
 
     call_args = provider.generate_with_tools.call_args
     messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
-    assert messages[0]["role"] == "system"
-    assert "test assistant" in messages[0]["content"]
+    assert messages[0].role == "system"
+    assert "test assistant" in messages[0].content
 
 
 @pytest.mark.asyncio
