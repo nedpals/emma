@@ -54,6 +54,14 @@ class ToolDefinition(BaseModel):
     parameters: dict[str, Any]
 
 
+class StreamDelta(BaseModel):
+    content: str | None = None
+    tool_call_id: str | None = None
+    tool_call_name: str | None = None
+    tool_call_arguments: str | None = None
+    finish_reason: str | None = None
+
+
 class LLMProvider(ABC):
     @abstractmethod
     def generate(self, messages: list[ChatMessage], temperature: float = 0.7, max_tokens: int = -1) -> str:
@@ -70,7 +78,13 @@ class LLMProvider(ABC):
         ...
 
     @abstractmethod
-    def generate_stream(self, messages: list[ChatMessage], temperature: float = 0.7) -> Generator[str, None, None]:
+    def generate_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[ToolDefinition] | None = None,
+        temperature: float = 0.7,
+        tool_choice: str = "auto",
+    ) -> Generator[StreamDelta, None, None]:
         ...
 
     @abstractmethod

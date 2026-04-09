@@ -159,6 +159,7 @@ def test_search_handbook_returns_results_with_grounding_reminder():
     mock_collection = MagicMock()
     mock_collection.query.return_value = {
         "documents": [["Doc about attendance policy", "Doc about grading"]],
+        "distances": [[0.3, 0.4]],
     }
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
@@ -177,8 +178,8 @@ def test_search_handbook_multiple_queries_deduplicates():
 
     mock_collection = MagicMock()
     mock_collection.query.side_effect = [
-        {"documents": [["Shared doc", "Doc A"]]},
-        {"documents": [["Shared doc", "Doc B"]]},
+        {"documents": [["Shared doc", "Doc A"]], "distances": [[0.2, 0.3]]},
+        {"documents": [["Shared doc", "Doc B"]], "distances": [[0.2, 0.5]]},
     ]
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
@@ -198,7 +199,7 @@ def test_search_handbook_accepts_single_string():
     mock_provider.embed.return_value = [0.1, 0.2, 0.3]
 
     mock_collection = MagicMock()
-    mock_collection.query.return_value = {"documents": [["Some doc"]]}
+    mock_collection.query.return_value = {"documents": [["Some doc"]], "distances": [[0.3]]}
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
     result = tool.execute(queries="single query string")
@@ -214,7 +215,7 @@ def test_search_handbook_no_results():
     mock_provider.embed.return_value = [0.1, 0.2, 0.3]
 
     mock_collection = MagicMock()
-    mock_collection.query.return_value = {"documents": [[]]}
+    mock_collection.query.return_value = {"documents": [[]], "distances": [[]]}
 
     tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
     result = tool.execute(queries=["nonexistent topic"])
@@ -229,3 +230,42 @@ def test_search_handbook_tool_metadata():
     tool = SearchHandbookTool(provider=MagicMock(), collection=MagicMock())
     assert tool.name == "search_handbook"
     assert "queries" in tool.parameters["properties"]
+
+
+def test_search_handbook_high_confidence():
+    from tools.search_handbook import SearchHandbookTool
+
+    mock_provider = MagicMock()
+    mock_provider.embed.return_value = [0.1, 0.2, 0.3]
+
+    mock_collection = MagicMock()
+    mock_collection.query.return_value = {
+        "documents": [["Doc about tardiness"]],
+        "distances": [[0.2]],
+    }
+
+    tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
+    result = tool.execute(queries=["tardiness policy"])
+
+    assert result.success is True
+    assert "high confidence" in result.content
+
+
+def test_search_handbook_low_confidence():
+    from tools.search_handbook import SearchHandbookTool
+
+    mock_provider = MagicMock()
+    mock_provider.embed.return_value = [0.1, 0.2, 0.3]
+
+    mock_collection = MagicMock()
+    mock_collection.query.return_value = {
+        "documents": [["Some unrelated doc"]],
+        "distances": [[1.5]],
+    }
+
+    tool = SearchHandbookTool(provider=mock_provider, collection=mock_collection)
+    result = tool.execute(queries=["something obscure"])
+
+    assert result.success is True
+    assert "low confidence" in result.content
+    assert "may not be relevant" in result.content

@@ -1,14 +1,31 @@
 from unittest.mock import MagicMock
 import pytest
 
-from providers import TextResponse, ToolCall, ToolCallResponse
+from providers import StreamDelta, ToolDefinition
 
 
-def _mock_stream(text):
-    """Create a generator that yields text one word at a time."""
+def _mock_text_stream(text):
+    """Create a generator that yields StreamDelta for text content."""
     def stream(*args, **kwargs):
         for word in text.split(" "):
-            yield word + " "
+            yield StreamDelta(content=word + " ")
+        yield StreamDelta(finish_reason="stop")
+    return stream
+
+
+def _mock_tool_then_text_stream(tool_name, tool_args_json, text):
+    """First call yields tool call deltas, second call yields text deltas."""
+    calls = [0]
+    def stream(*args, **kwargs):
+        calls[0] += 1
+        if calls[0] == 1:
+            yield StreamDelta(tool_call_id="call_1", tool_call_name=tool_name)
+            yield StreamDelta(tool_call_arguments=tool_args_json)
+            yield StreamDelta(finish_reason="tool_calls")
+        else:
+            for word in text.split(" "):
+                yield StreamDelta(content=word + " ")
+            yield StreamDelta(finish_reason="stop")
     return stream
 
 
@@ -29,8 +46,7 @@ def _make_agent(provider=None, max_iterations=5):
 
     if provider is None:
         provider = MagicMock()
-        provider.generate_with_tools.return_value = TextResponse(content="Hello!")
-        provider.generate_stream.side_effect = _mock_stream("Hello!")
+        provider.generate_stream.side_effect = _mock_text_stream("Hello!")
 
     return Agent(
         provider=provider,
@@ -48,13 +64,12 @@ async def _collect_events(agent, input, chat_history=None):
 
 
 def _get_answer(events):
-    """Reconstruct the answer from answer_chunk events."""
     chunks = [e["chunk"] for e in events if e["type"] == "answer_chunk"]
     return "".join(chunks).strip() if chunks else None
 
 
 @pytest.mark.asyncio
-async def test_agent_streams_text_response():
+async def test_agent_streams_text_directly():
     agent = _make_agent()
     events = await _collect_events(agent, "hi")
 
@@ -67,27 +82,23 @@ async def test_agent_streams_text_response():
 @pytest.mark.asyncio
 async def test_agent_executes_tool_then_streams_answer():
     provider = MagicMock()
-    provider.generate_with_tools.side_effect = [
-        ToolCallResponse(calls=[ToolCall(id="1", name="echo", arguments={"text": "world"})]),
-        TextResponse(content="The echo said: world"),
-    ]
-    provider.generate_stream.side_effect = _mock_stream("The echo said: world")
+    provider.generate_stream.side_effect = _mock_tool_then_text_stream(
+        "echo", '{"text": "world"}', "The echo said: world"
+    )
 
     agent = _make_agent(provider=provider)
     events = await _collect_events(agent, "echo world")
 
     assert _get_answer(events) == "The echo said: world"
-    assert provider.generate_with_tools.call_count == 2
+    assert provider.generate_stream.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_agent_yields_tool_and_answer_events():
     provider = MagicMock()
-    provider.generate_with_tools.side_effect = [
-        ToolCallResponse(calls=[ToolCall(id="1", name="echo", arguments={"text": "test"})]),
-        TextResponse(content="done"),
-    ]
-    provider.generate_stream.side_effect = _mock_stream("done")
+    provider.generate_stream.side_effect = _mock_tool_then_text_stream(
+        "echo", '{"text": "test"}', "done"
+    )
 
     agent = _make_agent(provider=provider)
     events = await _collect_events(agent, "test")
@@ -102,11 +113,9 @@ async def test_agent_yields_tool_and_answer_events():
 @pytest.mark.asyncio
 async def test_agent_handles_unknown_tool():
     provider = MagicMock()
-    provider.generate_with_tools.side_effect = [
-        ToolCallResponse(calls=[ToolCall(id="1", name="nonexistent", arguments={})]),
-        TextResponse(content="Sorry"),
-    ]
-    provider.generate_stream.side_effect = _mock_stream("Sorry")
+    provider.generate_stream.side_effect = _mock_tool_then_text_stream(
+        "nonexistent", '{}', "Sorry"
+    )
 
     agent = _make_agent(provider=provider)
     events = await _collect_events(agent, "use nonexistent")
@@ -116,17 +125,25 @@ async def test_agent_handles_unknown_tool():
 
 @pytest.mark.asyncio
 async def test_agent_respects_max_iterations():
+    call_count = [0]
+    def always_tool_call(*args, **kwargs):
+        call_count[0] += 1
+        if call_count[0] <= 2:
+            yield StreamDelta(tool_call_id="call_1", tool_call_name="echo")
+            yield StreamDelta(tool_call_arguments='{"text": "loop"}')
+            yield StreamDelta(finish_reason="tool_calls")
+        else:
+            for word in "Forced final".split(" "):
+                yield StreamDelta(content=word + " ")
+            yield StreamDelta(finish_reason="stop")
+
     provider = MagicMock()
-    provider.generate_with_tools.return_value = ToolCallResponse(
-        calls=[ToolCall(id="1", name="echo", arguments={"text": "loop"})]
-    )
-    provider.generate_stream.side_effect = _mock_stream("Forced final response")
+    provider.generate_stream.side_effect = always_tool_call
 
     agent = _make_agent(provider=provider, max_iterations=2)
     events = await _collect_events(agent, "loop forever")
 
-    assert _get_answer(events) == "Forced final response"
-    assert provider.generate_with_tools.call_count == 2
+    assert _get_answer(events) == "Forced final"
 
 
 @pytest.mark.asyncio
@@ -143,11 +160,9 @@ async def test_agent_handles_tool_execution_error():
             raise RuntimeError("Something broke")
 
     provider = MagicMock()
-    provider.generate_with_tools.side_effect = [
-        ToolCallResponse(calls=[ToolCall(id="1", name="fail", arguments={})]),
-        TextResponse(content="Tool failed"),
-    ]
-    provider.generate_stream.side_effect = _mock_stream("Tool failed")
+    provider.generate_stream.side_effect = _mock_tool_then_text_stream(
+        "fail", '{}', "Tool failed"
+    )
 
     registry = ToolRegistry()
     registry.register(FailingTool())
@@ -166,13 +181,12 @@ async def test_agent_handles_tool_execution_error():
 @pytest.mark.asyncio
 async def test_agent_includes_system_prompt_in_messages():
     provider = MagicMock()
-    provider.generate_with_tools.return_value = TextResponse(content="hi")
-    provider.generate_stream.side_effect = _mock_stream("hi")
+    provider.generate_stream.side_effect = _mock_text_stream("hi")
 
     agent = _make_agent(provider=provider)
     await _collect_events(agent, "hello")
 
-    call_args = provider.generate_with_tools.call_args
+    call_args = provider.generate_stream.call_args
     messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
     assert messages[0].role == "system"
     assert "test assistant" in messages[0].content
@@ -181,7 +195,9 @@ async def test_agent_includes_system_prompt_in_messages():
 @pytest.mark.asyncio
 async def test_agent_yields_error_on_provider_failure():
     provider = MagicMock()
-    provider.generate_with_tools.side_effect = RuntimeError("LM Studio is down")
+    def failing_stream(*args, **kwargs):
+        raise RuntimeError("LM Studio is down")
+    provider.generate_stream.side_effect = failing_stream
 
     agent = _make_agent(provider=provider)
     events = await _collect_events(agent, "hello")

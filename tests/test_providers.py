@@ -162,3 +162,111 @@ def test_lm_studio_embed():
     call_kwargs = mock_create.call_args[1]
     assert call_kwargs["input"] == ["search_query: test text"]
     assert call_kwargs["model"] == "test-embed"
+
+
+def test_stream_delta_holds_content():
+    from providers import StreamDelta
+    d = StreamDelta(content="hello")
+    assert d.content == "hello"
+    assert d.finish_reason is None
+
+
+def test_stream_delta_holds_tool_call():
+    from providers import StreamDelta
+    d = StreamDelta(tool_call_id="1", tool_call_name="search", tool_call_arguments='{"q": "test"}')
+    assert d.tool_call_name == "search"
+    assert d.content is None
+
+
+def test_stream_delta_holds_finish_reason():
+    from providers import StreamDelta
+    d = StreamDelta(finish_reason="stop")
+    assert d.finish_reason == "stop"
+
+
+def test_lm_studio_stream_yields_content_deltas():
+    from providers import StreamDelta, UserMessage
+    from providers.lm_studio import LMStudioProvider
+    provider = LMStudioProvider(
+        base_url="http://localhost:1234/v1",
+        api_key="test",
+        llm_model="test-model",
+        vlm_model="test-vlm",
+        embedding_model="test-embed",
+    )
+
+    mock_chunk_1 = MagicMock()
+    mock_chunk_1.choices = [MagicMock()]
+    mock_chunk_1.choices[0].delta.content = "Hello "
+    mock_chunk_1.choices[0].delta.tool_calls = None
+    mock_chunk_1.choices[0].finish_reason = None
+
+    mock_chunk_2 = MagicMock()
+    mock_chunk_2.choices = [MagicMock()]
+    mock_chunk_2.choices[0].delta.content = "world"
+    mock_chunk_2.choices[0].delta.tool_calls = None
+    mock_chunk_2.choices[0].finish_reason = None
+
+    mock_chunk_3 = MagicMock()
+    mock_chunk_3.choices = [MagicMock()]
+    mock_chunk_3.choices[0].delta.content = None
+    mock_chunk_3.choices[0].delta.tool_calls = None
+    mock_chunk_3.choices[0].finish_reason = "stop"
+
+    with patch.object(provider._client.chat.completions, "create", return_value=iter([mock_chunk_1, mock_chunk_2, mock_chunk_3])):
+        deltas = list(provider.generate_stream(messages=[UserMessage("hi")]))
+
+    contents = [d.content for d in deltas if d.content]
+    assert contents == ["Hello ", "world"]
+    assert deltas[-1].finish_reason == "stop"
+
+
+def test_lm_studio_stream_yields_tool_call_deltas():
+    from providers import StreamDelta, ToolDefinition, UserMessage
+    from providers.lm_studio import LMStudioProvider
+    provider = LMStudioProvider(
+        base_url="http://localhost:1234/v1",
+        api_key="test",
+        llm_model="test-model",
+        vlm_model="test-vlm",
+        embedding_model="test-embed",
+    )
+
+    mock_tc = MagicMock()
+    mock_tc.index = 0
+    mock_tc.id = "call_123"
+    mock_tc.function.name = "search_handbook"
+    mock_tc.function.arguments = '{"query":'
+
+    mock_tc2 = MagicMock()
+    mock_tc2.index = 0
+    mock_tc2.id = None
+    mock_tc2.function.name = None
+    mock_tc2.function.arguments = ' "attendance"}'
+
+    mock_chunk_1 = MagicMock()
+    mock_chunk_1.choices = [MagicMock()]
+    mock_chunk_1.choices[0].delta.content = None
+    mock_chunk_1.choices[0].delta.tool_calls = [mock_tc]
+    mock_chunk_1.choices[0].finish_reason = None
+
+    mock_chunk_2 = MagicMock()
+    mock_chunk_2.choices = [MagicMock()]
+    mock_chunk_2.choices[0].delta.content = None
+    mock_chunk_2.choices[0].delta.tool_calls = [mock_tc2]
+    mock_chunk_2.choices[0].finish_reason = None
+
+    mock_chunk_3 = MagicMock()
+    mock_chunk_3.choices = [MagicMock()]
+    mock_chunk_3.choices[0].delta.content = None
+    mock_chunk_3.choices[0].delta.tool_calls = None
+    mock_chunk_3.choices[0].finish_reason = "tool_calls"
+
+    tools = [ToolDefinition(name="search_handbook", description="search", parameters={"type": "object", "properties": {}})]
+
+    with patch.object(provider._client.chat.completions, "create", return_value=iter([mock_chunk_1, mock_chunk_2, mock_chunk_3])):
+        deltas = list(provider.generate_stream(messages=[UserMessage("test")], tools=tools))
+
+    tool_deltas = [d for d in deltas if d.tool_call_id or d.tool_call_arguments]
+    assert len(tool_deltas) >= 1
+    assert deltas[-1].finish_reason == "tool_calls"

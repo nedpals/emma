@@ -104,6 +104,13 @@ This method is useful if you encounter issues with local vision model processing
 10. The script will detect the cached data in `extracted_2/page_0.json`, skip the vision/OCR step, and proceed directly to embedding the text segments using the local embedding model.
 11. The embeddings and vector store data will be persisted in the `embeddings_db` directory.
 
+**Note:** Both methods produce the same `extracted_2/page_0.json` format. The embedding pipeline (`embedding.py`) automatically:
+- Prepends section context to each chunk for better search relevance
+- Splits oversized chunks at paragraph boundaries (max ~1200 characters per chunk)
+- Uses `text-embedding-nomic-embed-text-v2-moe` for embeddings
+
+To re-embed existing extracted data (e.g., after changing the embedding model), delete the `embeddings_db` directory and re-run `python embedding.py`.
+
 ## 🤝 Contributing
 
 We welcome contributions to make Emma even better! If you'd like to contribute:

@@ -9,7 +9,9 @@ from tools import Tool, ToolResult
 log = logging.getLogger(__name__)
 
 
-GROUNDING_REMINDER = "\n\n---\nBase your answer on the information above. You may reason about or build upon this content, but do not invent facts not found here."
+CONFIDENCE_THRESHOLD = 1.0
+HIGH_CONFIDENCE_REMINDER = "\n\n---\nBase your answer on the information above. You may reason about or build upon this content, but do not invent facts not found here."
+LOW_CONFIDENCE_REMINDER = "\n\n---\nThese results may not be relevant to the question. If none are relevant, say you don't have that information rather than guessing."
 MAX_CONTEXT_CHARS = 6000
 
 
@@ -41,25 +43,27 @@ class SearchHandbookTool(Tool):
         self._provider = provider
         self._collection = collection
 
-    def _search(self, queries: list[str], n_results: int, where_filter: dict | None = None) -> list[str]:
-        """Search for each query, return deduplicated docs preserving order."""
+    def _search(self, queries: list[str], n_results: int, where_filter: dict | None = None) -> list[tuple[str, float]]:
+        """Search for each query, return deduplicated (doc, distance) pairs preserving order."""
         seen: set[str] = set()
-        docs: list[str] = []
+        docs: list[tuple[str, float]] = []
         for q in queries:
             embedding = self._provider.embed(q, "search_query")
             try:
                 params = {
                     "query_embeddings": [embedding],
                     "n_results": n_results,
-                    "include": ["documents"],
+                    "include": ["documents", "distances"],
                 }
                 if where_filter:
                     params["where"] = where_filter
                 results = self._collection.query(**params)
-                for doc in results.get("documents", [[]])[0]:
+                result_docs = results.get("documents", [[]])[0]
+                result_distances = results.get("distances", [[]])[0]
+                for doc, dist in zip(result_docs, result_distances):
                     if doc not in seen:
                         seen.add(doc)
-                        docs.append(doc)
+                        docs.append((doc, dist))
             except Exception:
                 continue
         return docs
@@ -81,8 +85,8 @@ class SearchHandbookTool(Tool):
         docs = self._search(queries, n_results)
 
         log.info(f"Vector search returned {len(docs)} docs")
-        for i, doc in enumerate(docs):
-            log.debug(f"  [{i}] ({len(doc)} chars) {doc[:80]}...")
+        for i, (doc, dist) in enumerate(docs):
+            log.debug(f"  [{i}] dist={dist:.3f} ({len(doc)} chars) {doc[:80]}...")
 
         # Last resort: keyword filter (may surface tagged docs that vector search missed)
         if not docs:
@@ -107,21 +111,29 @@ class SearchHandbookTool(Tool):
                 success=False,
             )
 
+        # Compute average distance to determine confidence
+        avg_distance = sum(dist for _, dist in docs) / len(docs)
+        high_confidence = avg_distance < CONFIDENCE_THRESHOLD
+        confidence_label = "high confidence" if high_confidence else "low confidence"
+        reminder = HIGH_CONFIDENCE_REMINDER if high_confidence else LOW_CONFIDENCE_REMINDER
+
+        log.info(f"Avg distance={avg_distance:.3f}, confidence={confidence_label}")
+
         # Cap total context size
         parts: list[str] = []
         total = 0
-        for doc in docs:
+        for doc, _ in docs:
             if total + len(doc) > MAX_CONTEXT_CHARS:
                 break
             parts.append(doc)
             total += len(doc)
 
         context = "\n\n".join(parts)
-        result_count = f"({len(parts)} of {len(docs)} results shown)"
+        result_count = f"({len(parts)} of {len(docs)} results shown, {confidence_label})"
 
         log.info(f"Returning {len(parts)} of {len(docs)} docs ({total} chars)")
 
         return ToolResult(
-            content=f"{result_count}\n\n{context}{GROUNDING_REMINDER}",
+            content=f"{result_count}\n\n{context}{reminder}",
             success=True,
         )

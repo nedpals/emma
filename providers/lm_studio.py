@@ -11,6 +11,7 @@ from providers import (
     ChatMessage,
     LLMProvider,
     LLMResponse,
+    StreamDelta,
     TextResponse,
     ToolCall,
     ToolCallResponse,
@@ -90,17 +91,54 @@ class LMStudioProvider(LLMProvider):
 
         return TextResponse(content=message.content.strip() if message.content else "")
 
-    def generate_stream(self, messages: list[ChatMessage], temperature: float = 0.7) -> Generator[str, None, None]:
-        stream = self._client.chat.completions.create(
-            model=self._llm_model,
-            messages=_to_dicts(messages),
-            temperature=temperature,
-            stream=True,
-        )
+    def generate_stream(
+        self,
+        messages: list[ChatMessage],
+        tools: list[ToolDefinition] | None = None,
+        temperature: float = 0.7,
+        tool_choice: str = "auto",
+    ) -> Generator[StreamDelta, None, None]:
+        params: dict[str, Any] = {
+            "model": self._llm_model,
+            "messages": _to_dicts(messages),
+            "temperature": temperature,
+            "stream": True,
+        }
+
+        if tools:
+            params["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters,
+                    },
+                }
+                for t in tools
+            ]
+            params["tool_choice"] = tool_choice
+
+        stream = self._client.chat.completions.create(**params)
+
         for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+            choice = chunk.choices[0]
+            delta = choice.delta
+            finish = choice.finish_reason
+
+            if delta.content:
+                yield StreamDelta(content=delta.content)
+
+            if delta.tool_calls:
+                for tc in delta.tool_calls:
+                    yield StreamDelta(
+                        tool_call_id=tc.id if tc.id else None,
+                        tool_call_name=tc.function.name if tc.function.name else None,
+                        tool_call_arguments=tc.function.arguments if tc.function.arguments else None,
+                    )
+
+            if finish:
+                yield StreamDelta(finish_reason=finish)
 
     def embed(self, text: str, purpose: Literal["search_query", "search_document"]) -> list[float]:
         response = self._client.embeddings.create(

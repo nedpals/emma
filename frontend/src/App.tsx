@@ -95,9 +95,13 @@ const Logo = ({ showIcon = false, ...props }: React.SVGProps<SVGSVGElement> & { 
 );
 
 function AssistantMessage({ content, isStreaming }: { content: string, isStreaming?: boolean }) {
+  // Convert single \n to markdown hard breaks (two trailing spaces + \n)
+  // so Streamdown renders them as <br>. Double \n\n (paragraphs) are left as-is.
+  const formatted = content.replace(/(?<!\n)\n(?!\n)/g, '  \n');
+
   return (
     <div className="prose prose-sm max-w-none prose-p:leading-relaxed prose-p:my-1 prose-ul:my-2 prose-li:my-0.5 text-primary-900">
-      <Streamdown mode={isStreaming ? "streaming" : "static"} animated>{content}</Streamdown>
+      <Streamdown mode={isStreaming ? "streaming" : "static"} animated>{formatted}</Streamdown>
     </div>
   );
 }
