@@ -11,7 +11,7 @@ description = "AI assistant for the University of the Immaculate Conception (UIC
 full_description = f"Your name is {assistant_name}. You are a friendly AI companion for students of the University of the Immaculate Conception (UIC). You help students understand and explore the official UIC student handbook."
 
 # App version
-version = "2.0.0"
+version = "3.0.0"
 
 # Additional specific prompt (school-specific rules or nuances)
 # Keep instructions specific to the handbook/school context
